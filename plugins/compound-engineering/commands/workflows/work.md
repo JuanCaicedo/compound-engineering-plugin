@@ -254,12 +254,12 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    **IMPORTANT**: Always include uploaded image URLs in PR description. This provides visual context for reviewers and documents the change.
 
-3. **Create Pull Request**
+3. **Create Merge Request**
 
    ```bash
    git push -u origin feature-branch-name
 
-   gh pr create --title "Feature: [Description]" --body "$(cat <<'EOF'
+   glab mr create --title "Feature: [Description]" --description "$(cat <<'EOF'
    ## Summary
    - What was built
    - Why it was needed
@@ -279,7 +279,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    ---
 
-   [![Compound Engineered](https://img.shields.io/badge/Compound-Engineered-6366f1)](https://github.com/EveryInc/compound-engineering-plugin) 🤖 Generated with [Claude Code](https://claude.com/claude-code)
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
    EOF
    )"
    ```

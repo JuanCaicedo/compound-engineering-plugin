@@ -58,7 +58,7 @@ Agents are organized into categories for easier discovery.
 | `bug-reproduction-validator` | Systematically reproduce and validate bug reports |
 | `every-style-editor` | Edit content to conform to Every's style guide |
 | `lint` | Run linting and code quality checks on Ruby and ERB files |
-| `pr-comment-resolver` | Address PR comments and implement fixes |
+| `mr-comment-resolver` | Address MR comments and implement fixes |
 | `spec-flow-analyzer` | Analyze user flows and identify gaps in specifications |
 
 ### Docs (1)
@@ -94,12 +94,12 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 | `/report-bug` | Report a bug in the plugin |
 | `/reproduce-bug` | Reproduce bugs using logs and console |
 | `/resolve_parallel` | Resolve TODO comments in parallel |
-| `/resolve_pr_parallel` | Resolve PR comments in parallel |
+| `/resolve_mr_parallel` | Resolve MR comments in parallel |
 | `/resolve_todo_parallel` | Resolve todos in parallel |
 | `/triage` | Triage and prioritize issues |
-| `/test-browser` | Run browser tests on PR-affected pages |
+| `/test-browser` | Run browser tests on MR-affected pages |
 | `/xcode-test` | Build and test iOS apps on simulator |
-| `/feature-video` | Record video walkthroughs and add to PR description |
+| `/feature-video` | Record video walkthroughs and add to MR description |
 
 ## Skills
 
@@ -172,6 +172,25 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 Supports 100+ frameworks including Rails, React, Next.js, Vue, Django, Laravel, and more.
 
 MCP servers start automatically when the plugin is enabled.
+
+## GitLab Integration
+
+This plugin uses **glab CLI** for GitLab merge request and issue operations. Install it:
+
+```bash
+brew install glab
+glab auth login
+```
+
+Commands that use glab:
+- `/workflows:review` - Fetch MR metadata and checkout branches
+- `/workflows:work` - Create merge requests
+- `/workflows:plan` - Create GitLab issues
+- `/changelog` - Lookup merged MRs
+- `/feature-video` - Update MR descriptions with video demos
+- `/test-browser` - Get changed files from MRs
+- `/resolve_mr_parallel` - Resolve MR comments
+- `/report-bug` - Create bug report issues
 
 ## Browser Automation
 

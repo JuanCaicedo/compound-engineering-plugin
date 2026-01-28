@@ -1,7 +1,7 @@
 ---
 name: workflows:review
 description: Perform exhaustive code reviews using multi-agent analysis, ultra-thinking, and worktrees
-argument-hint: "[PR number, GitHub URL, branch name, or latest]"
+argument-hint: "[MR number, GitLab URL, branch name, or latest]"
 ---
 
 # Review Command
@@ -15,7 +15,7 @@ argument-hint: "[PR number, GitHub URL, branch name, or latest]"
 ## Prerequisites
 
 <requirements>
-- Git repository with GitHub CLI (`gh`) installed and authenticated
+- Git repository with GitLab CLI (`glab`) installed and authenticated
 - Clean main/master branch
 - Proper permissions to create worktrees and access the repository
 - For document reviews: Path to a markdown file or document
@@ -35,14 +35,14 @@ First, I need to determine the review target type and set up the code for analys
 
 <task_list>
 
-- [ ] Determine review type: PR number (numeric), GitHub URL, file path (.md), or empty (current branch)
+- [ ] Determine review type: MR number (numeric), GitLab URL, file path (.md), or empty (current branch)
 - [ ] Check current git branch
 - [ ] If ALREADY on the target branch (PR branch, requested branch name, or the branch already checked out for review) → proceed with analysis on current branch
 - [ ] If DIFFERENT branch than the review target → offer to use worktree: "Use git-worktree skill for isolated Call `skill: git-worktree` with branch name
-- [ ] Fetch PR metadata using `gh pr view --json` for title, body, files, linked issues
+- [ ] Fetch MR metadata using `glab mr view -F json` for title, body, files, linked issues
 - [ ] Set up language-specific analysis tools
 - [ ] Prepare security scanning environment
-- [ ] Make sure we are on the branch we are reviewing. Use gh pr checkout to switch to the branch or manually checkout the branch.
+- [ ] Make sure we are on the branch we are reviewing. Use glab mr checkout to switch to the branch or manually checkout the branch.
 
 Ensure that the code is ready for analysis (either in worktree or on current branch). ONLY then proceed to the next step.
 
