@@ -101,24 +101,24 @@ Create a well-structured bug report with:
 *Reported via `/report-bug-ce` skill*
 ```
 
-## Step 4: Create GitHub Issue
+## Step 4: Create GitLab Issue
 
-Use the GitHub CLI to create the issue:
+Use the GitLab CLI to create the issue:
 
 ```bash
-gh issue create \
-  --repo EveryInc/compound-engineering-plugin \
+glab issue create \
+  --repo <your-gitlab-project-path> \
   --title "[compound-engineering] Bug: [Brief description]" \
-  --body "[Formatted bug report from Step 3]" \
+  --description "[Formatted bug report from Step 3]" \
   --label "bug,compound-engineering"
 ```
 
 **Note:** If labels don't exist, create without labels:
 ```bash
-gh issue create \
-  --repo EveryInc/compound-engineering-plugin \
+glab issue create \
+  --repo <your-gitlab-project-path> \
   --title "[compound-engineering] Bug: [Brief description]" \
-  --body "[Formatted bug report]"
+  --description "[Formatted bug report]"
 ```
 
 ## Step 5: Confirm Submission
@@ -133,7 +133,7 @@ After the issue is created:
 ```
 Bug report submitted successfully!
 
-Issue: https://github.com/EveryInc/compound-engineering-plugin/issues/[NUMBER]
+Issue: [GitLab issue URL]
 Title: [compound-engineering] Bug: [description]
 
 Thank you for helping improve the compound-engineering plugin!

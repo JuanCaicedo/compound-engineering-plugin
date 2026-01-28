@@ -177,7 +177,7 @@ Agents are specialized subagents invoked by skills — you typically don't call 
 
 | Agent | Description |
 |-------|-------------|
-| `pr-comment-resolver` | Address PR comments and implement fixes |
+| `mr-comment-resolver` | Address MR comments and implement fixes |
 | `spec-flow-analyzer` | Analyze user flows and identify gaps in specifications |
 
 ### Docs
