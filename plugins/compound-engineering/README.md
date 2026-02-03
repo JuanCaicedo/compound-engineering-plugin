@@ -1,5 +1,7 @@
 # Compounding Engineering Plugin
 
+> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (25 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
+
 AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.
 
 ## Components
