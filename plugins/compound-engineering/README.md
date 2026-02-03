@@ -11,7 +11,7 @@ After installing, run `/ce-setup` in any project. It diagnoses your environment,
 | Component | Count |
 |-----------|-------|
 | Agents | 50+ |
-| Skills | 42+ |
+| Skills | 45+ |
 
 ## Skills
 
@@ -72,15 +72,13 @@ For `/ce-optimize`, see [`skills/ce-optimize/README.md`](./skills/ce-optimize/RE
 | Skill | Description |
 |-------|-------------|
 | `agent-native-architecture` | Build AI agents using prompt-native architecture |
-| `andrew-kane-gem-writer` | Write Ruby gems following Andrew Kane's patterns |
-| `dhh-rails-style` | Write Ruby/Rails code in DHH's 37signals style |
-| `dspy-ruby` | Build type-safe LLM applications with DSPy.rb |
 | `frontend-design` | Create production-grade frontend interfaces |
 
 ### Review & Quality
 
 | Skill | Description |
 |-------|-------------|
+| `quick-review` | Lightweight code review with 3 focused agents -- correctness, quality, and learnings |
 | `claude-permissions-optimizer` | Optimize Claude Code permissions from session history |
 | `document-review` | Review documents using parallel persona agents for role-specific feedback |
 
@@ -112,33 +110,32 @@ Agents are specialized subagents invoked by skills — you typically don't call 
 
 | Agent | Description |
 |-------|-------------|
+| `adversarial-reviewer` | Construct failure scenarios to break implementations across component boundaries |
 | `agent-native-reviewer` | Verify features are agent-native (action + context parity) |
 | `api-contract-reviewer` | Detect breaking API contract changes |
+| `architecture-strategist` | Analyze architectural decisions and compliance |
 | `cli-agent-readiness-reviewer` | Evaluate CLI agent-friendliness against 7 core principles |
 | `cli-readiness-reviewer` | CLI agent-readiness persona for ce:review (conditional, structured JSON) |
-| `architecture-strategist` | Analyze architectural decisions and compliance |
 | `code-simplicity-reviewer` | Final pass for simplicity and minimalism |
 | `correctness-reviewer` | Logic errors, edge cases, state bugs |
 | `data-integrity-guardian` | Database migrations and data integrity |
 | `data-migration-expert` | Validate ID mappings match production, check for swapped values |
 | `data-migrations-reviewer` | Migration safety with confidence calibration |
 | `deployment-verification-agent` | Create Go/No-Go deployment checklists for risky data changes |
-| `dhh-rails-reviewer` | Rails review from DHH's perspective |
 | `julik-frontend-races-reviewer` | Review JavaScript/Stimulus code for race conditions |
-| `kieran-rails-reviewer` | Rails code review with strict conventions |
 | `kieran-python-reviewer` | Python code review with strict conventions |
 | `kieran-typescript-reviewer` | TypeScript code review with strict conventions |
 | `maintainability-reviewer` | Coupling, complexity, naming, dead code |
 | `pattern-recognition-specialist` | Analyze code for patterns and anti-patterns |
 | `performance-oracle` | Performance analysis and optimization |
 | `performance-reviewer` | Runtime performance with confidence calibration |
+| `project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance |
+| `quality-reviewer` | Combined maintainability + testing review in a single pass |
 | `reliability-reviewer` | Production reliability and failure modes |
 | `schema-drift-detector` | Detect unrelated schema.rb changes in PRs |
 | `security-reviewer` | Exploitable vulnerabilities with confidence calibration |
 | `security-sentinel` | Security audits and vulnerability assessments |
 | `testing-reviewer` | Test coverage gaps, weak assertions |
-| `project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance |
-| `adversarial-reviewer` | Construct failure scenarios to break implementations across component boundaries |
 
 ### Document Review
 

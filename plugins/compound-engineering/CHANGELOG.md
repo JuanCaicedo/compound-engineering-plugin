@@ -9,6 +9,7 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<<<<<<< HEAD
 ## [2.66.1](https://github.com/EveryInc/compound-engineering-plugin/compare/compound-engineering-v2.66.0...compound-engineering-v2.66.1) (2026-04-16)
 
 
@@ -582,6 +583,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prevents accidental inclusion of local database state
   - Provides clear fix instructions (checkout + migrate)
   - Essential pre-merge check for any PR with database changes
+
+### Removed (Fork)
+
+- **Rails/Ruby-specific components** - Removed Rails and Ruby-focused agents and skills to streamline the plugin
+  - Agents: `dhh-rails-reviewer`, `kieran-rails-reviewer`
+  - Skills: `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`
+  - Keywords: Removed `rails` and `ruby` from plugin metadata
 
 ---
 
