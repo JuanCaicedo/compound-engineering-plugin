@@ -9,7 +9,6 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<<<<<<< HEAD
 ## [2.66.1](https://github.com/EveryInc/compound-engineering-plugin/compare/compound-engineering-v2.66.0...compound-engineering-v2.66.1) (2026-04-16)
 
 
@@ -375,6 +374,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **every-style-editor agent** — Removed duplicate agent; functionality already exists as `every-style-editor` skill ([#234](https://github.com/EveryInc/compound-engineering-plugin/pull/234))
+
+### Removed (Fork)
+
+- **Python-specific components** - Removed Python-focused agents to streamline the plugin
+  - Agents: `kieran-python-reviewer`
+  - Keywords: Removed `python` from plugin metadata
 
 ### Contributors
 

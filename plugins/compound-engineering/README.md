@@ -123,7 +123,6 @@ Agents are specialized subagents invoked by skills — you typically don't call 
 | `data-migrations-reviewer` | Migration safety with confidence calibration |
 | `deployment-verification-agent` | Create Go/No-Go deployment checklists for risky data changes |
 | `julik-frontend-races-reviewer` | Review JavaScript/Stimulus code for race conditions |
-| `kieran-python-reviewer` | Python code review with strict conventions |
 | `kieran-typescript-reviewer` | TypeScript code review with strict conventions |
 | `maintainability-reviewer` | Coupling, complexity, naming, dead code |
 | `pattern-recognition-specialist` | Analyze code for patterns and anti-patterns |
