@@ -423,7 +423,7 @@ Apply best practices for clarity and actionability, making the issue easy to sca
 
 - [ ] Link to related issues/PRs using #number format
 - [ ] Reference specific commits with SHA hashes when relevant
-- [ ] Link to code using GitHub's permalink feature (press 'y' for permanent link)
+- [ ] Link to code using GitLab's permalink feature
 - [ ] Mention relevant team members with @username if needed
 - [ ] Add links to external resources with descriptive text
 
@@ -501,7 +501,7 @@ After writing the plan file, use the **AskUserQuestion tool** to present these o
 3. **Run `/plan_review`** - Get feedback from reviewers (DHH, Kieran, Simplicity)
 4. **Start `/workflows:work`** - Begin implementing this plan locally
 5. **Start `/workflows:work` on remote** - Begin implementing in Claude Code on the web (use `&` to run in background)
-6. **Create Issue** - Create issue in project tracker (GitHub/Linear)
+6. **Create Issue** - Create issue in project tracker (GitLab/Linear)
 7. **Simplify** - Reduce detail level
 
 Based on selection:
@@ -523,15 +523,15 @@ Loop back to options after Simplify or Other changes until user selects `/workfl
 When user selects "Create Issue", detect their project tracker from CLAUDE.md:
 
 1. **Check for tracker preference** in user's CLAUDE.md (global or project):
-   - Look for `project_tracker: github` or `project_tracker: linear`
-   - Or look for mentions of "GitHub Issues" or "Linear" in their workflow section
+   - Look for `project_tracker: gitlab` or `project_tracker: linear`
+   - Or look for mentions of "GitLab Issues" or "Linear" in their workflow section
 
-2. **If GitHub:**
+2. **If GitLab:**
 
    Use the title and type from Step 2 (already in context - no need to re-read the file):
 
    ```bash
-   gh issue create --title "<type>: <title>" --body-file <plan_path>
+   glab issue create --title "<type>: <title>" --description "$(cat <plan_path>)"
    ```
 
 3. **If Linear:**
@@ -541,8 +541,8 @@ When user selects "Create Issue", detect their project tracker from CLAUDE.md:
    ```
 
 4. **If no tracker configured:**
-   Ask user: "Which project tracker do you use? (GitHub/Linear/Other)"
-   - Suggest adding `project_tracker: github` or `project_tracker: linear` to their CLAUDE.md
+   Ask user: "Which project tracker do you use? (GitLab/Linear/Other)"
+   - Suggest adding `project_tracker: gitlab` or `project_tracker: linear` to their CLAUDE.md
 
 5. **After creation:**
    - Display the issue URL

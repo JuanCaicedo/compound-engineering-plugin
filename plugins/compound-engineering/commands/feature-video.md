@@ -1,7 +1,7 @@
 ---
 name: feature-video
-description: Record a video walkthrough of a feature and add it to the PR description
-argument-hint: "[PR number or 'current'] [optional: base URL, default localhost:3000]"
+description: Record a video walkthrough of a feature and add it to the MR description
+argument-hint: "[MR number or 'current'] [optional: base URL, default localhost:3000]"
 ---
 
 # Feature Video Walkthrough
@@ -16,14 +16,14 @@ This command creates professional video walkthroughs of features for PR document
 - Records browser interactions using agent-browser CLI
 - Demonstrates the complete user flow
 - Uploads the video for easy sharing
-- Updates the PR description with an embedded video
+- Updates the MR description with an embedded video
 
 ## Prerequisites
 
 <requirements>
 - Local development server running (e.g., `bin/dev`, `rails server`)
 - agent-browser CLI installed
-- Git repository with a PR to document
+- Git repository with an MR to document
 - `ffmpeg` installed (for video conversion)
 - `rclone` configured (optional, for cloud upload - see rclone skill)
 </requirements>
@@ -51,12 +51,12 @@ See the `agent-browser` skill for detailed usage.
 **Arguments:** $ARGUMENTS
 
 Parse the input:
-- First argument: PR number or "current" (defaults to current branch's PR)
+- First argument: MR number or "current" (defaults to current branch's MR)
 - Second argument: Base URL (defaults to `http://localhost:3000`)
 
 ```bash
-# Get PR number for current branch if needed
-gh pr view --json number -q '.number'
+# Get MR number for current branch if needed
+glab mr view -F json | jq '.iid'
 ```
 
 </parse_args>
@@ -65,14 +65,14 @@ gh pr view --json number -q '.number'
 
 <gather_context>
 
-**Get PR details:**
+**Get MR details:**
 ```bash
-gh pr view [number] --json title,body,files,headRefName -q '.'
+glab mr view [number] -F json
 ```
 
 **Get changed files:**
 ```bash
-gh pr view [number] --json files -q '.files[].path'
+glab mr diff [number] --name-only
 ```
 
 **Map files to testable routes** (same as playwright-test):
@@ -103,7 +103,7 @@ Ask user to confirm or adjust the flow:
 ```markdown
 **Proposed Video Flow**
 
-Based on PR #[number]: [title]
+Based on MR ![number]: [title]
 
 1. Start at: /[starting-route]
 2. Navigate to: /[feature-route]
@@ -190,7 +190,7 @@ ffmpeg -y -framerate 0.5 -pattern_type glob -i 'tmp/screenshots/*.png' \
   -c:v libx264 -pix_fmt yuv420p -vf "scale=1280:-2" \
   tmp/videos/feature-demo.mp4
 
-# Create low-quality GIF for preview (small file, for GitHub embed)
+# Create low-quality GIF for preview (small file, for GitLab embed)
 ffmpeg -y -framerate 0.5 -pattern_type glob -i 'tmp/screenshots/*.png' \
   -vf "scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse" \
   -loop 0 tmp/videos/feature-demo-preview.gif
@@ -229,20 +229,20 @@ Preview: https://pub-4047722ebb1b4b09853f24d3b61467f1.r2.dev/pr-videos/pr-[numbe
 
 </upload_video>
 
-### 7. Update PR Description
+### 7. Update MR Description
 
-<update_pr>
+<update_mr>
 
-**Get current PR body:**
+**Get current MR description:**
 ```bash
-gh pr view [number] --json body -q '.body'
+glab mr view [number] -F json | jq -r '.description'
 ```
 
-**Add video section to PR description:**
+**Add video section to MR description:**
 
-If the PR already has a video section, replace it. Otherwise, append:
+If the MR already has a video section, replace it. Otherwise, append:
 
-**IMPORTANT:** GitHub cannot embed external MP4s directly. Use a clickable GIF that links to the video:
+**IMPORTANT:** GitLab cannot embed external MP4s directly. Use a clickable GIF that links to the video:
 
 ```markdown
 ## Demo
@@ -257,21 +257,21 @@ Example:
 [![Feature Demo](https://pub-4047722ebb1b4b09853f24d3b61467f1.r2.dev/pr-videos/pr-137/feature-demo-preview.gif)](https://pub-4047722ebb1b4b09853f24d3b61467f1.r2.dev/pr-videos/pr-137/feature-demo.mp4)
 ```
 
-**Update the PR:**
+**Update the MR:**
 ```bash
-gh pr edit [number] --body "[updated body with video section]"
+glab mr update [number] --description "[updated description with video section]"
 ```
 
 **Or add as a comment if preferred:**
 ```bash
-gh pr comment [number] --body "## Feature Demo
+glab mr note [number] --message "## Feature Demo
 
 ![Demo]([video-url])
 
-_Automated walkthrough of the changes in this PR_"
+_Automated walkthrough of the changes in this MR_"
 ```
 
-</update_pr>
+</update_mr>
 
 ### 8. Cleanup
 
@@ -296,7 +296,7 @@ Present completion summary:
 ```markdown
 ## Feature Video Complete
 
-**PR:** #[number] - [title]
+**MR:** ![number] - [title]
 **Video:** [url or local path]
 **Duration:** ~[X] seconds
 **Format:** [GIF/MP4]
@@ -307,8 +307,8 @@ Present completion summary:
 3. [Feature demo] - [description]
 4. [Result] - [description]
 
-### PR Updated
-- [x] Video section added to PR description
+### MR Updated
+- [x] Video section added to MR description
 - [ ] Ready for review
 
 **Next steps:**
@@ -321,10 +321,10 @@ Present completion summary:
 ## Quick Usage Examples
 
 ```bash
-# Record video for current branch's PR
+# Record video for current branch's MR
 /feature-video
 
-# Record video for specific PR
+# Record video for specific MR
 /feature-video 847
 
 # Record with custom base URL
@@ -336,7 +336,7 @@ Present completion summary:
 
 ## Tips
 
-- **Keep it short**: 10-30 seconds is ideal for PR demos
+- **Keep it short**: 10-30 seconds is ideal for MR demos
 - **Focus on the change**: Don't include unrelated UI
 - **Show before/after**: If fixing a bug, show the broken state first (if possible)
 - **Annotate if needed**: Add text overlays for complex features

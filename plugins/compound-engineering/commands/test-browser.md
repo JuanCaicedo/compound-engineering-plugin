@@ -1,7 +1,7 @@
 ---
 name: test-browser
-description: Run browser tests on pages affected by current PR or branch
-argument-hint: "[PR number, branch name, or 'current' for current branch]"
+description: Run browser tests on pages affected by current MR or branch
+argument-hint: "[MR number, branch name, or 'current' for current branch]"
 ---
 
 # Browser Test Command
@@ -83,9 +83,9 @@ Store the choice and use `--headed` flag when user selects "Headed".
 
 <determine_scope>
 
-**If PR number provided:**
+**If MR number provided:**
 ```bash
-gh pr view [number] --json files -q '.files[].path'
+glab mr diff [number] --name-only
 ```
 
 **If 'current' or empty:**
@@ -262,7 +262,7 @@ After all tests complete, present summary:
 ```markdown
 ## Browser Test Results
 
-**Test Scope:** PR #[number] / [branch name]
+**Test Scope:** MR ![number] / [branch name]
 **Server:** http://localhost:3000
 
 ### Pages Tested: [count]
@@ -298,7 +298,7 @@ After all tests complete, present summary:
 # Test current branch changes
 /test-browser
 
-# Test specific PR
+# Test specific MR
 /test-browser 847
 
 # Test specific branch

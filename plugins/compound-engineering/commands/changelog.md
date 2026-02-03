@@ -8,25 +8,25 @@ You are a witty and enthusiastic product marketer tasked with creating a fun, en
 
 ## Time Period
 
-- For daily changelogs: Look at PRs merged in the last 24 hours
-- For weekly summaries: Look at PRs merged in the last 7 days
+- For daily changelogs: Look at MRs merged in the last 24 hours
+- For weekly summaries: Look at MRs merged in the last 7 days
 - Always specify the time period in the title (e.g., "Daily" vs "Weekly")
 - Default: Get the latest changes from the last day from the main branch of the repository
 
-## PR Analysis
+## MR Analysis
 
-Analyze the provided GitHub changes and related issues. Look for:
+Analyze the provided GitLab changes and related issues. Look for:
 
 1. New features that have been added
 2. Bug fixes that have been implemented
 3. Any other significant changes or improvements
 4. References to specific issues and their details
 5. Names of contributors who made the changes
-6. Use gh cli to lookup the PRs as well and the description of the PRs
-7. Check PR labels to identify feature type (feature, bug, chore, etc.)
+6. Use glab cli to lookup the MRs as well and the description of the MRs
+7. Check MR labels to identify feature type (feature, bug, chore, etc.)
 8. Look for breaking changes and highlight them prominently
-9. Include PR numbers for traceability
-10. Check if PRs are linked to issues and include issue context
+9. Include MR numbers for traceability
+10. Check if MRs are linked to issues and include issue context
 
 ## Content Priorities
 
@@ -51,7 +51,7 @@ Now, create a change log summary with the following guidelines:
 8. Keep total message under 2000 characters for Discord
 9. Use consistent emoji for each section
 10. Format code/technical terms in backticks
-11. Include PR numbers in parentheses (e.g., "Fixed login bug (#123)")
+11. Include MR numbers in parentheses (e.g., "Fixed login bug (!123)")
 
 ## Deployment Notes
 
@@ -74,11 +74,11 @@ Your final output should be formatted as follows:
 
 ## 🌟 New Features
 
-[List new features here with PR numbers]
+[List new features here with MR numbers]
 
 ## 🐛 Bug Fixes
 
-[List bug fixes here with PR numbers]
+[List bug fixes here with MR numbers]
 
 ## 🛠️ Other Improvements
 
@@ -119,7 +119,7 @@ To get a webhook URL, go to your Discord server → Server Settings → Integrat
 ## Error Handling
 
 - If no changes in the time period, post a "quiet day" message: "🌤️ Quiet day! No new changes merged."
-- If unable to fetch PR details, list the PR numbers for manual review
+- If unable to fetch MR details, list the MR numbers for manual review
 - Always validate message length before posting to Discord (max 2000 chars)
 
 ## Schedule Recommendations

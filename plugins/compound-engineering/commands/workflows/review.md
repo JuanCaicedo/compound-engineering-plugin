@@ -1,7 +1,7 @@
 ---
 name: workflows:review
 description: Perform exhaustive code reviews using multi-agent analysis, ultra-thinking, and worktrees
-argument-hint: "[PR number, GitHub URL, branch name, or latest]"
+argument-hint: "[MR number, GitLab URL, branch name, or latest]"
 ---
 
 # Review Command
@@ -15,7 +15,7 @@ argument-hint: "[PR number, GitHub URL, branch name, or latest]"
 ## Prerequisites
 
 <requirements>
-- Git repository with GitHub CLI (`gh`) installed and authenticated
+- Git repository with GitLab CLI (`glab`) installed and authenticated
 - Clean main/master branch
 - Proper permissions to create worktrees and access the repository
 - For document reviews: Path to a markdown file or document
@@ -35,14 +35,14 @@ First, I need to determine the review target type and set up the code for analys
 
 <task_list>
 
-- [ ] Determine review type: PR number (numeric), GitHub URL, file path (.md), or empty (current branch)
+- [ ] Determine review type: MR number (numeric), GitLab URL, file path (.md), or empty (current branch)
 - [ ] Check current git branch
 - [ ] If ALREADY on the target branch (PR branch, requested branch name, or the branch already checked out for review) → proceed with analysis on current branch
 - [ ] If DIFFERENT branch than the review target → offer to use worktree: "Use git-worktree skill for isolated Call `skill: git-worktree` with branch name
-- [ ] Fetch PR metadata using `gh pr view --json` for title, body, files, linked issues
+- [ ] Fetch MR metadata using `glab mr view -F json` for title, body, files, linked issues
 - [ ] Set up language-specific analysis tools
 - [ ] Prepare security scanning environment
-- [ ] Make sure we are on the branch we are reviewing. Use gh pr checkout to switch to the branch or manually checkout the branch.
+- [ ] Make sure we are on the branch we are reviewing. Use glab mr checkout to switch to the branch or manually checkout the branch.
 
 Ensure that the code is ready for analysis (either in worktree or on current branch). ONLY then proceed to the next step.
 
@@ -54,9 +54,7 @@ Ensure that the code is ready for analysis (either in worktree or on current bra
 
 Run ALL or most of these agents at the same time:
 
-1. Task kieran-rails-reviewer(PR content)
-2. Task dhh-rails-reviewer(PR title)
-3. If turbo is used: Task rails-turbo-expert(PR content)
+1. Task kieran-typescript-reviewer(PR content)
 4. Task git-history-analyzer(PR content)
 5. Task dependency-detective(PR content)
 6. Task pattern-recognition-specialist(PR content)
@@ -66,7 +64,6 @@ Run ALL or most of these agents at the same time:
 10. Task performance-oracle(PR content)
 11. Task devops-harmony-analyst(PR content)
 12. Task data-integrity-guardian(PR content)
-13. Task agent-native-reviewer(PR content) - Verify new features are agent-accessible
 
 </parallel_tasks>
 
@@ -76,21 +73,7 @@ Run ALL or most of these agents at the same time:
 
 These agents are run ONLY when the PR matches specific criteria. Check the PR files list to determine if they apply:
 
-**If PR contains database migrations (db/migrate/*.rb files) or data backfills:**
-
-14. Task data-migration-expert(PR content) - Validates ID mappings match production, checks for swapped values, verifies rollback safety
-15. Task deployment-verification-agent(PR content) - Creates Go/No-Go deployment checklist with SQL verification queries
-
-**When to run migration agents:**
-- PR includes files matching `db/migrate/*.rb`
-- PR modifies columns that store IDs, enums, or mappings
-- PR includes data backfill scripts or rake tasks
-- PR changes how data is read/written (e.g., changing from FK to string column)
-- PR title/body mentions: migration, backfill, data transformation, ID mapping
-
-**What these agents check:**
-- `data-migration-expert`: Verifies hard-coded mappings match production reality (prevents swapped IDs), checks for orphaned associations, validates dual-write patterns
-- `deployment-verification-agent`: Produces executable pre/post-deploy checklists with SQL queries, rollback procedures, and monitoring plans
+(none)
 
 </conditional_agents>
 
