@@ -12,7 +12,7 @@
     {
       "name": "compound-engineering",
       "description": "AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last. Includes 25 specialized agents, 24 commands, and 12 skills.",
-      "version": "2.30.0",
+      "version": "2.31.0",
       "author": {
         "name": "Kieran Klaassen (original), Juan Caicedo (fork)",
         "url": "https://github.com/JuanCaicedo",
