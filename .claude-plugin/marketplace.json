@@ -1,11 +1,11 @@
 {
-  "name": "compound-engineering-plugin",
+  "name": "juan-caicedo-marketplace",
   "owner": {
-    "name": "Kieran Klaassen",
-    "url": "https://github.com/kieranklaassen"
+    "name": "Juan Caicedo",
+    "url": "https://github.com/JuanCaicedo"
   },
   "metadata": {
-    "description": "Plugin marketplace for Claude Code and Codex extensions",
+    "description": "Juan Caicedo's fork of the compound-engineering plugin (Rails/Ruby/Python components removed)",
     "version": "1.0.2"
   },
   "plugins": [
@@ -13,11 +13,11 @@
       "name": "compound-engineering",
       "description": "AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.",
       "author": {
-        "name": "Kieran Klaassen",
-        "url": "https://github.com/kieranklaassen",
+        "name": "Kieran Klaassen (original), Juan Caicedo (fork)",
+        "url": "https://github.com/JuanCaicedo",
         "email": "kieran@every.to"
       },
-      "homepage": "https://github.com/EveryInc/compound-engineering-plugin",
+      "homepage": "https://github.com/JuanCaicedo/compound-engineering-plugin",
       "tags": [
         "ai-powered",
         "compound-engineering",
@@ -35,7 +35,7 @@
       "author": {
         "name": "Nityesh Agarwal"
       },
-      "homepage": "https://github.com/EveryInc/compound-engineering-plugin",
+      "homepage": "https://github.com/JuanCaicedo/compound-engineering-plugin",
       "tags": [
         "coding",
         "programming",

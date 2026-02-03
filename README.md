@@ -1,9 +1,23 @@
-# Compound Engineering
+# Compound Marketplace (Juan Caicedo's Fork)
+
+> **Note:** This is Juan Caicedo's private fork of [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) with Rails, Ruby, and Python components removed. See [FORK.md](FORK.md) for sync instructions.
 
 [![Build Status](https://github.com/EveryInc/compound-engineering-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/EveryInc/compound-engineering-plugin/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@every-env/compound-plugin)](https://www.npmjs.com/package/@every-env/compound-plugin)
 
 A plugin marketplace featuring the [Compound Engineering plugin](plugins/compound-engineering/README.md) — AI skills and agents that make each unit of engineering work easier than the last.
+
+## Claude Code Install
+
+```bash
+# Install from this fork
+/plugin marketplace add https://github.com/JuanCaicedo/compound-engineering-plugin
+/plugin install compound-engineering
+
+# Or install from upstream (includes Rails/Ruby/Python components)
+/plugin marketplace add https://github.com/EveryInc/compound-engineering-plugin
+/plugin install compound-engineering
+```
 
 ## Philosophy
 
