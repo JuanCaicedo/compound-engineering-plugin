@@ -5,7 +5,25 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.30.0] - 2026-02-03
+## [2.31.0] - 2026-02-03 (Fork)
+
+### Changed
+
+- **Upstream sync** - Merged upstream changes through commit 9f93f54 (9 commits)
+  - Plan file protection from review deletion (#142)
+  - GitHub CI workflow for tests
+  - Codex syntax transformation fixes
+  - README badge updates
+
+### Maintained Fork Customizations
+
+- Rails/Ruby/Python components remain removed (25 agents, 12 skills)
+- All repository URLs point to JuanCaicedo/compound-engineering-plugin
+- Fork-specific metadata preserved
+
+---
+
+## [2.30.0] - 2026-02-03 (Fork)
 
 ### Removed
 
@@ -15,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.29.0] - 2026-02-03
+## [2.29.0] - 2026-02-03 (Fork)
 
 ### Removed
 
@@ -26,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.28.0] - 2026-01-21
+## [2.28.0] - 2026-01-21 (Upstream)
 
 ### Added
 
