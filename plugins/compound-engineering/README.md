@@ -1,21 +1,23 @@
 # Compounding Engineering Plugin
 
+> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (25 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
+
 AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.
 
 ## Components
 
 | Component | Count |
 |-----------|-------|
-| Agents | 27 |
+| Agents | 25 |
 | Commands | 20 |
-| Skills | 14 |
+| Skills | 12 |
 | MCP Servers | 1 |
 
 ## Agents
 
 Agents are organized into categories for easier discovery.
 
-### Review (14)
+### Review (11)
 
 | Agent | Description |
 |-------|-------------|
@@ -25,9 +27,6 @@ Agents are organized into categories for easier discovery.
 | `data-integrity-guardian` | Database migrations and data integrity |
 | `data-migration-expert` | Validate ID mappings match production, check for swapped values |
 | `deployment-verification-agent` | Create Go/No-Go deployment checklists for risky data changes |
-| `dhh-rails-reviewer` | Rails review from DHH's perspective |
-| `kieran-rails-reviewer` | Rails code review with strict conventions |
-| `kieran-python-reviewer` | Python code review with strict conventions |
 | `kieran-typescript-reviewer` | TypeScript code review with strict conventions |
 | `pattern-recognition-specialist` | Analyze code for patterns and anti-patterns |
 | `performance-oracle` | Performance analysis and optimization |
@@ -113,11 +112,8 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 
 | Skill | Description |
 |-------|-------------|
-| `andrew-kane-gem-writer` | Write Ruby gems following Andrew Kane's patterns |
 | `compound-docs` | Capture solved problems as categorized documentation |
 | `create-agent-skills` | Expert guidance for creating Claude Code skills |
-| `dhh-rails-style` | Write Ruby/Rails code in DHH's 37signals style |
-| `dspy-ruby` | Build type-safe LLM applications with DSPy.rb |
 | `frontend-design` | Create production-grade frontend interfaces |
 | `skill-creator` | Guide for creating effective Claude Code skills |
 

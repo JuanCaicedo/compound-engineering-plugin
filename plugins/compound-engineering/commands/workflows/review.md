@@ -314,7 +314,7 @@ Examples:
 - `p2` - Important (should fix, architectural/performance)
 - `p3` - Nice-to-have (enhancements, cleanup)
 
-**Tagging:** Always add `code-review` tag, plus: `security`, `performance`, `architecture`, `rails`, `quality`, etc.
+**Tagging:** Always add `code-review` tag, plus: `security`, `performance`, `architecture`, `quality`, etc.
 
 #### Step 3: Summary Report
 
@@ -350,11 +350,10 @@ After creating all todo files, present comprehensive summary:
 
 ### Review Agents Used:
 
-- kieran-rails-reviewer
+- kieran-typescript-reviewer
 - security-sentinel
 - performance-oracle
 - architecture-strategist
-- agent-native-reviewer
 - [other agents]
 
 ### Next Steps:

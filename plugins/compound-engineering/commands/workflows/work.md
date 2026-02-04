@@ -178,7 +178,7 @@ This command takes a work document (plan, specification, or todo file) and execu
    Use for complex, risky, or large changes:
 
    - **code-simplicity-reviewer**: Check for unnecessary complexity
-   - **kieran-rails-reviewer**: Verify Rails conventions (Rails projects)
+   - **kieran-typescript-reviewer**: Verify TypeScript conventions
    - **performance-oracle**: Check for performance issues
    - **security-sentinel**: Scan for security vulnerabilities
    - **cora-test-reviewer**: Review test quality (CORA projects)
@@ -187,7 +187,7 @@ This command takes a work document (plan, specification, or todo file) and execu
 
    ```
    Task(code-simplicity-reviewer): "Review changes for simplicity"
-   Task(kieran-rails-reviewer): "Check Rails conventions"
+   Task(kieran-typescript-reviewer): "Check TypeScript conventions"
    ```
 
    Present findings to user and address critical issues.

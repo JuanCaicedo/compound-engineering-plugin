@@ -1,4 +1,6 @@
-# Every Marketplace - Claude Code Plugin Marketplace
+# Juan Caicedo's Fork - Claude Code Plugin Marketplace
+
+> **Fork Information:** This is a private fork of [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin). Rails, Ruby, and Python components have been removed. See [FORK.md](FORK.md) for upstream sync instructions.
 
 This repository is a Claude Code plugin marketplace that distributes the `compound-engineering` plugin to developers building with AI-powered tools.
 
@@ -254,6 +256,37 @@ python -m http.server 8000
 # Then visit http://localhost:8000
 ```
 
+## Fork Management
+
+This is Juan Caicedo's private fork of the upstream repository. See [FORK.md](FORK.md) for complete sync instructions.
+
+### Quick Sync Commands
+
+```bash
+# Fetch and merge upstream changes
+git fetch upstream
+git checkout -b sync-upstream-$(date +%Y%m%d)
+git merge upstream/main
+# ... resolve conflicts ...
+git checkout main && git merge sync-upstream-$(date +%Y%m%d)
+```
+
+### Fork Customizations to Preserve
+
+When syncing with upstream, ensure these customizations are preserved:
+- Removed components: Rails/Ruby/Python agents and skills
+- Component counts: 25 agents (not 28), 12 skills (not 15)
+- Repository URLs: Point to JuanCaicedo/compound-engineering-plugin
+- Owner information: Juan Caicedo (fork)
+
+### Handling CHANGELOG Conflicts
+
+When merging upstream:
+1. Keep BOTH changelog entries (upstream and fork)
+2. Order by version number (higher first)
+3. Mark fork entries with `(Fork)` label
+4. Preserve all fork-specific versions (2.29.0, 2.30.0)
+
 ## Testing Changes
 
 ### Test Locally
@@ -378,3 +411,15 @@ The initial marketplace.json included many custom fields (downloads, stars, rati
 - Plugin entries: `name`, `description`, `version`, `author`, `homepage`, `tags`, `source`
 
 **Learning:** Stick to the official spec. Custom fields may confuse users or break compatibility with future versions.
+
+### 2026-02-03: Created private fork with Rails/Ruby/Python components removed
+
+Forked from EveryInc/compound-engineering-plugin and removed Rails, Ruby, and Python-specific components to streamline the plugin. Created FORK.md with comprehensive sync instructions.
+
+**Learning:** When maintaining a fork with deletions:
+- Document all removed components clearly
+- Use CHANGELOG entries marked with `(Fork)` to distinguish from upstream
+- Update all repository URLs to point to the fork
+- Create detailed merge conflict resolution strategies, especially for CHANGELOG
+- Test component counts after every upstream sync
+- Remove references to deleted components during merges
