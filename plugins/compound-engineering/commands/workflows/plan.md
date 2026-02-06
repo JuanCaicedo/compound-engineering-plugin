@@ -24,10 +24,11 @@ Do not proceed until you have a clear feature description from the user.
 
 **Check for brainstorm output first:**
 
-Before asking questions, look for recent brainstorm documents in `docs/brainstorms/` that match this feature:
+Before asking questions, look for recent brainstorm documents in the git root's `docs/brainstorms/` that match this feature:
 
 ```bash
-ls -la docs/brainstorms/*.md 2>/dev/null | head -10
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+ls -la "$GIT_ROOT/docs/brainstorms/"*.md 2>/dev/null | head -10
 ```
 
 **Relevance criteria:** A brainstorm is relevant if:
@@ -476,24 +477,35 @@ end
 
 **Filename:** Use the date and kebab-case filename from Step 2 Title & Categorization.
 
+**Location:** Always write to the git repository root's `docs/plans/` directory, not the current working directory.
+
+```bash
+# Find git root and create docs/plans if needed
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+mkdir -p "$GIT_ROOT/docs/plans"
 ```
-docs/plans/YYYY-MM-DD-<type>-<descriptive-name>-plan.md
+
+**Path format:**
+```
+$GIT_ROOT/docs/plans/YYYY-MM-DD-<type>-<descriptive-name>-plan.md
 ```
 
 Examples:
-- ✅ `docs/plans/2026-01-15-feat-user-authentication-flow-plan.md`
-- ✅ `docs/plans/2026-02-03-fix-checkout-race-condition-plan.md`
-- ✅ `docs/plans/2026-03-10-refactor-api-client-extraction-plan.md`
+- ✅ `$GIT_ROOT/docs/plans/2026-01-15-feat-user-authentication-flow-plan.md`
+- ✅ `$GIT_ROOT/docs/plans/2026-02-03-fix-checkout-race-condition-plan.md`
+- ✅ `$GIT_ROOT/docs/plans/2026-03-10-refactor-api-client-extraction-plan.md`
 - ❌ `docs/plans/2026-01-15-feat-thing-plan.md` (not descriptive - what "thing"?)
 - ❌ `docs/plans/2026-01-15-feat-new-feature-plan.md` (too vague - what feature?)
 - ❌ `docs/plans/2026-01-15-feat: user auth-plan.md` (invalid characters - colon and space)
 - ❌ `docs/plans/feat-user-auth-plan.md` (missing date prefix)
 
+**Note:** Plans are written but **NOT committed** to git. Users maintain their own documentation workflow.
+
 ## Post-Generation Options
 
 After writing the plan file, use the **AskUserQuestion tool** to present these options:
 
-**Question:** "Plan ready at `docs/plans/YYYY-MM-DD-<type>-<name>-plan.md`. What would you like to do next?"
+**Question:** "Plan ready at `$GIT_ROOT/docs/plans/YYYY-MM-DD-<type>-<name>-plan.md`. What would you like to do next?"
 
 **Options:**
 1. **Open plan in editor** - Open the plan file for review
@@ -505,11 +517,11 @@ After writing the plan file, use the **AskUserQuestion tool** to present these o
 7. **Simplify** - Reduce detail level
 
 Based on selection:
-- **Open plan in editor** → Run `open docs/plans/<plan_filename>.md` to open the file in the user's default editor
-- **`/deepen-plan`** → Call the /deepen-plan command with the plan file path to enhance with research
-- **`/plan_review`** → Call the /plan_review command with the plan file path
-- **`/workflows:work`** → Call the /workflows:work command with the plan file path
-- **`/workflows:work` on remote** → Run `/workflows:work docs/plans/<plan_filename>.md &` to start work in background for Claude Code web
+- **Open plan in editor** → Run `open "$GIT_ROOT/docs/plans/<plan_filename>.md"` to open the file in the user's default editor
+- **`/deepen-plan`** → Call the /deepen-plan command with the full plan file path
+- **`/plan_review`** → Call the /plan_review command with the full plan file path
+- **`/workflows:work`** → Call the /workflows:work command with the full plan file path
+- **`/workflows:work` on remote** → Run `/workflows:work "$GIT_ROOT/docs/plans/<plan_filename>.md" &` to start work in background for Claude Code web
 - **Create Issue** → See "Issue Creation" section below
 - **Simplify** → Ask "What should I simplify?" then regenerate simpler version
 - **Other** (automatically provided) → Accept free text for rework or specific changes
