@@ -1,6 +1,6 @@
 # Compounding Engineering Plugin
 
-> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (25 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
+> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (26 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
 
 AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.
 
@@ -8,8 +8,8 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 
 | Component | Count |
 |-----------|-------|
-| Agents | 25 |
-| Commands | 20 |
+| Agents | 26 |
+| Commands | 24 |
 | Skills | 12 |
 | MCP Servers | 1 |
 
@@ -50,11 +50,12 @@ Agents are organized into categories for easier discovery.
 | `design-iterator` | Iteratively refine UI through systematic design iterations |
 | `figma-design-sync` | Synchronize web implementations with Figma designs |
 
-### Workflow (5)
+### Workflow (6)
 
 | Agent | Description |
 |-------|-------------|
 | `bug-reproduction-validator` | Systematically reproduce and validate bug reports |
+| `compound` | Document solved problems to build searchable knowledge base |
 | `every-style-editor` | Edit content to conform to Every's style guide |
 | `lint` | Run linting and code quality checks on Ruby and ERB files |
 | `mr-comment-resolver` | Address MR comments and implement fixes |
