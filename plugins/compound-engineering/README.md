@@ -10,7 +10,7 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 |-----------|-------|
 | Agents | 26 |
 | Commands | 24 |
-| Skills | 12 |
+| Skills | 13 |
 | MCP Servers | 1 |
 
 ## Agents
@@ -116,6 +116,7 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 | `compound-docs` | Capture solved problems as categorized documentation |
 | `create-agent-skills` | Expert guidance for creating Claude Code skills |
 | `frontend-design` | Create production-grade frontend interfaces |
+| `keyboard-troubleshooting` | Debug keyboard behavior issues on macOS with hardware-first diagnostics |
 | `skill-creator` | Guide for creating effective Claude Code skills |
 
 ### Content & Workflow

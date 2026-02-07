@@ -5,6 +5,19 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.0] - 2026-02-07 (Fork)
+
+### Added
+
+- **`keyboard-troubleshooting` skill** - Hardware-first diagnostic framework for macOS keyboard issues
+  - Systematic device variance testing to identify hardware vs software problems
+  - Quick reference for firmware toggles across common keyboard models
+  - Case studies demonstrating real-world troubleshooting patterns
+  - Supports modifier key swaps, function key failures, and connection-specific issues
+  - Skill count updated from 12 to 13 across all documentation
+
+---
+
 ## [2.31.2] - 2026-02-06 (Fork)
 
 ### Fixed
