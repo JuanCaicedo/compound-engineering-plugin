@@ -1,6 +1,6 @@
 # Compounding Engineering Plugin
 
-> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (25 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
+> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (26 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
 
 AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.
 
@@ -8,7 +8,7 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 
 | Component | Count |
 |-----------|-------|
-| Agents | 25 |
+| Agents | 26 |
 | Commands | 20 |
 | Skills | 12 |
 | MCP Servers | 1 |
@@ -17,12 +17,13 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 
 Agents are organized into categories for easier discovery.
 
-### Review (11)
+### Review (12)
 
 | Agent | Description |
 |-------|-------------|
 | `agent-native-reviewer` | Verify features are agent-native (action + context parity) |
 | `architecture-strategist` | Analyze architectural decisions and compliance |
+| `brandon-aldrich-reviewer` | Architecture, performance, and component design review |
 | `code-simplicity-reviewer` | Final pass for simplicity and minimalism |
 | `data-integrity-guardian` | Database migrations and data integrity |
 | `data-migration-expert` | Validate ID mappings match production, check for swapped values |

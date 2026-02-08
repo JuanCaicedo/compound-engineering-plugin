@@ -5,6 +5,20 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.31.1] - 2026-02-07 (Fork)
+
+### Added
+
+- **Brandon Aldrich Reviewer Agent** - Code review agent focused on architecture, performance, and component design
+  - Questions module boundaries and cross-module dependencies
+  - Suggests performance optimizations using batched/suspenseful queries
+  - Advocates for component simplicity and minimal call-site complexity
+  - Provides specific codebase examples and references
+  - Uses Request/Question/Praise communication style
+  - Balances critique with encouragement
+
+---
+
 ## [2.31.0] - 2026-02-03 (Fork)
 
 ### Changed
