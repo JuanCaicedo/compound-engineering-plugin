@@ -5,6 +5,35 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.31.3] - 2026-02-09 (Fork)
+
+### Added
+
+- **`/agent_review` Command** - Invoke any reviewer agent for focused code review
+  - Syntax: `/agent_review <reviewer-name> [file-or-pr]`
+  - Supports all 13 reviewer agents (jeremy, brandon, kieran, security, etc.)
+  - Accepts optional file path or PR/MR number for scope
+  - Provides reviewer-specific feedback with authentic communication style
+  - Examples: `/agent_review jeremy`, `/agent_review brandon 123`, `/agent_review security .`
+
+---
+
+## [2.31.2] - 2026-02-09 (Fork)
+
+### Added
+
+- **Jeremy Gillick Reviewer Agent** - Code review agent focused on readability, code organization, and React performance
+  - Advocates for extracting inline logic to useCallback/dedicated functions
+  - Eliminates code duplication by identifying and consolidating similar code
+  - Emphasizes useMemo/useCallback for React performance optimization
+  - Values clear variable naming over nested complexity
+  - Promotes proper file/component organization and bundling
+  - Provides detailed educational explanations with reasoning
+  - Uses praise:/nit: communication style with questions to guide
+  - Based on analysis of Jeremy's GitLab MR comments
+
+---
+
 ## [2.31.1] - 2026-02-07 (Fork)
 
 ### Added
