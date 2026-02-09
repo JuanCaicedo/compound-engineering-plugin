@@ -66,6 +66,8 @@ If a review agent flags any file in these directories for cleanup or removal, di
 Run ALL or most of these agents at the same time:
 
 1. Task kieran-typescript-reviewer(PR content)
+2. Task jeremy-gillick-reviewer(PR content)
+3. Task brandon-aldrich-reviewer(PR content)
 4. Task git-history-analyzer(PR content)
 5. Task dependency-detective(PR content)
 6. Task pattern-recognition-specialist(PR content)
