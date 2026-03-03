@@ -5,6 +5,22 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.0] - 2026-03-03 (Fork)
+
+### Added
+
+- **`generate-review-guide` Skill** - Generate comprehensive reviewer's guides from GitLab merge request URLs
+  - Fetches MR data using `glab` CLI
+  - Analyzes changes to understand scope and impact
+  - Generates structured guide with architecture, testing checklists, and deployment considerations
+  - Saves to `~/code/vanna/docs/reviews/MR-{number}-{slug}.md`
+
+### Fixed
+
+- Updated skill count from 12 to 14 (added missing `brainstorming` and `keyboard-troubleshooting` to README)
+
+---
+
 ## [2.31.3] - 2026-02-09 (Fork)
 
 ### Added

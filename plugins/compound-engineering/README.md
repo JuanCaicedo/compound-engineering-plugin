@@ -10,7 +10,7 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 |-----------|-------|
 | Agents | 27 |
 | Commands | 25 |
-| Skills | 12 |
+| Skills | 14 |
 | MCP Servers | 1 |
 
 ## Agents
@@ -119,6 +119,13 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 | `frontend-design` | Create production-grade frontend interfaces |
 | `skill-creator` | Guide for creating effective Claude Code skills |
 
+### Planning & Review
+
+| Skill | Description |
+|-------|-------------|
+| `brainstorming` | Explore requirements and approaches through collaborative dialogue |
+| `generate-review-guide` | Generate comprehensive reviewer's guides from GitLab MR URLs |
+
 ### Content & Workflow
 
 | Skill | Description |
@@ -126,6 +133,7 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 | `every-style-editor` | Review copy for Every's style guide compliance |
 | `file-todos` | File-based todo tracking system |
 | `git-worktree` | Manage Git worktrees for parallel development |
+| `keyboard-troubleshooting` | Diagnose and fix keyboard input issues |
 
 ### File Transfer
 
