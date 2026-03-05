@@ -8,7 +8,7 @@ import type {
 } from "../types/claude"
 import type {
   OpenCodeBundle,
-  OpenCodeCommandConfig,
+  OpenCodeCommandFile,
   OpenCodeConfig,
   OpenCodeMcpServer,
 } from "../types/opencode"
@@ -66,13 +66,12 @@ export function convertClaudeToOpenCode(
   options: ClaudeToOpenCodeOptions,
 ): OpenCodeBundle {
   const agentFiles = plugin.agents.map((agent) => convertAgent(agent, options))
-  const commandMap = convertCommands(plugin.commands)
+  const cmdFiles = convertCommands(plugin.commands)
   const mcp = plugin.mcpServers ? convertMcp(plugin.mcpServers) : undefined
   const plugins = plugin.hooks ? [convertHooks(plugin.hooks)] : []
 
   const config: OpenCodeConfig = {
     $schema: "https://opencode.ai/config.json",
-    command: Object.keys(commandMap).length > 0 ? commandMap : undefined,
     mcp: mcp && Object.keys(mcp).length > 0 ? mcp : undefined,
   }
 
@@ -81,6 +80,7 @@ export function convertClaudeToOpenCode(
   return {
     config,
     agents: agentFiles,
+    commandFiles: cmdFiles,
     plugins,
     skillDirs: plugin.skills.map((skill) => ({ sourceDir: skill.sourceDir, name: skill.name })),
   }
@@ -103,7 +103,7 @@ function convertAgent(agent: ClaudeAgent, options: ClaudeToOpenCodeOptions) {
     }
   }
 
-  const content = formatFrontmatter(frontmatter, agent.body)
+  const content = formatFrontmatter(frontmatter, rewriteClaudePaths(agent.body))
 
   return {
     name: agent.name,
@@ -111,19 +111,22 @@ function convertAgent(agent: ClaudeAgent, options: ClaudeToOpenCodeOptions) {
   }
 }
 
-function convertCommands(commands: ClaudeCommand[]): Record<string, OpenCodeCommandConfig> {
-  const result: Record<string, OpenCodeCommandConfig> = {}
+// Commands are written as individual .md files rather than entries in opencode.json.
+// Chosen over JSON map because opencode resolves commands by filename at runtime (ADR-001).
+function convertCommands(commands: ClaudeCommand[]): OpenCodeCommandFile[] {
+  const files: OpenCodeCommandFile[] = []
   for (const command of commands) {
-    const entry: OpenCodeCommandConfig = {
+    if (command.disableModelInvocation) continue
+    const frontmatter: Record<string, unknown> = {
       description: command.description,
-      template: command.body,
     }
     if (command.model && command.model !== "inherit") {
-      entry.model = normalizeModel(command.model)
+      frontmatter.model = normalizeModel(command.model)
     }
-    result[command.name] = entry
+    const content = formatFrontmatter(frontmatter, rewriteClaudePaths(command.body))
+    files.push({ name: command.name, content })
   }
-  return result
+  return files
 }
 
 function convertMcp(servers: Record<string, ClaudeMcpServer>): Record<string, OpenCodeMcpServer> {
@@ -209,9 +212,11 @@ function renderHookStatements(
 ): string[] {
   if (!matcher.hooks || matcher.hooks.length === 0) return []
   const tools = matcher.matcher
-    .split("|")
-    .map((tool) => tool.trim().toLowerCase())
-    .filter(Boolean)
+    ? matcher.matcher
+        .split("|")
+        .map((tool) => tool.trim().toLowerCase())
+        .filter(Boolean)
+    : []
 
   const useMatcher = useToolMatcher && tools.length > 0 && !tools.includes("*")
   const condition = useMatcher
@@ -232,17 +237,39 @@ function renderHookStatements(
       continue
     }
     if (hook.type === "prompt") {
-      statements.push(`// Prompt hook for ${matcher.matcher}: ${hook.prompt.replace(/\n/g, " ")}`)
+      statements.push(`// Prompt hook for ${matcher.matcher ?? "*"}: ${hook.prompt.replace(/\n/g, " ")}`)
       continue
     }
-    statements.push(`// Agent hook for ${matcher.matcher}: ${hook.agent}`)
+    statements.push(`// Agent hook for ${matcher.matcher ?? "*"}: ${hook.agent}`)
   }
 
   return statements
 }
 
+function rewriteClaudePaths(body: string): string {
+  return body
+    .replace(/~\/\.claude\//g, "~/.config/opencode/")
+    .replace(/\.claude\//g, ".opencode/")
+}
+
+// Bare Claude family aliases used in Claude Code (e.g. `model: haiku`).
+// Update these when new model generations are released.
+const CLAUDE_FAMILY_ALIASES: Record<string, string> = {
+  haiku: "claude-haiku-4-5",
+  sonnet: "claude-sonnet-4-5",
+  opus: "claude-opus-4-6",
+}
+
 function normalizeModel(model: string): string {
   if (model.includes("/")) return model
+  if (CLAUDE_FAMILY_ALIASES[model]) {
+    const resolved = `anthropic/${CLAUDE_FAMILY_ALIASES[model]}`
+    console.warn(
+      `Warning: bare model alias "${model}" mapped to "${resolved}". ` +
+        `Update CLAUDE_FAMILY_ALIASES if a newer version is available.`,
+    )
+    return resolved
+  }
   if (/^claude-/.test(model)) return `anthropic/${model}`
   if (/^(gpt-|o1-|o3-)/.test(model)) return `openai/${model}`
   if (/^gemini-/.test(model)) return `google/${model}`

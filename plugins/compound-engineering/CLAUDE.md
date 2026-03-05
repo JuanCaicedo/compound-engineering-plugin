@@ -35,7 +35,8 @@ agents/
 └── docs/       # Documentation agents
 
 commands/
-├── workflows/  # Core workflow commands (workflows:plan, workflows:review, etc.)
+├── ce/         # Core workflow commands (ce:plan, ce:review, etc.)
+├── workflows/  # Deprecated aliases for ce:* commands
 └── *.md        # Utility commands
 
 skills/
@@ -44,13 +45,14 @@ skills/
 
 ## Command Naming Convention
 
-**Workflow commands** use `workflows:` prefix to avoid collisions with built-in commands:
-- `/workflows:plan` - Create implementation plans
-- `/workflows:review` - Run comprehensive code reviews
-- `/workflows:work` - Execute work items systematically
-- `/workflows:compound` - Document solved problems
+**Workflow commands** use `ce:` prefix to unambiguously identify them as compound-engineering commands:
+- `/ce:plan` - Create implementation plans
+- `/ce:review` - Run comprehensive code reviews
+- `/ce:work` - Execute work items systematically
+- `/ce:compound` - Document solved problems
+- `/ce:brainstorm` - Explore requirements and approaches before planning
 
-**Why `workflows:`?** Claude Code has built-in `/plan` and `/review` commands. Using `name: workflows:plan` in frontmatter creates a unique `/workflows:plan` command with no collision.
+**Why `ce:`?** Claude Code has built-in `/plan` and `/review` commands. The `ce:` namespace (short for compound-engineering) makes it immediately clear these commands belong to this plugin. The legacy `workflows:` prefix is still supported as deprecated aliases that forward to the `ce:*` equivalents.
 
 ## Skill Compliance Checklist
 
@@ -59,7 +61,7 @@ When adding or modifying skills, verify compliance with skill-creator spec:
 ### YAML Frontmatter (Required)
 
 - [ ] `name:` present and matches directory name (lowercase-with-hyphens)
-- [ ] `description:` present and uses **third person** ("This skill should be used when..." NOT "Use this skill when...")
+- [ ] `description:` present and describes **what it does and when to use it** (per official spec: "Explains code with diagrams. Use when exploring how code works.")
 
 ### Reference Links (Required if references/ exists)
 
@@ -73,6 +75,11 @@ When adding or modifying skills, verify compliance with skill-creator spec:
 - [ ] Use imperative/infinitive form (verb-first instructions)
 - [ ] Avoid second person ("you should") - use objective language ("To accomplish X, do Y")
 
+### AskUserQuestion Usage
+
+- [ ] If the skill uses `AskUserQuestion`, it must include an "Interaction Method" preamble explaining the numbered-list fallback for non-Claude environments
+- [ ] Prefer avoiding `AskUserQuestion` entirely (see `brainstorming/SKILL.md` pattern) for skills intended to run cross-platform
+
 ### Quick Validation Command
 
 ```bash
@@ -80,9 +87,8 @@ When adding or modifying skills, verify compliance with skill-creator spec:
 grep -E '`(references|assets|scripts)/[^`]+`' skills/*/SKILL.md
 # Should return nothing if all refs are properly linked
 
-# Check description format
-grep -E '^description:' skills/*/SKILL.md | grep -v 'This skill'
-# Should return nothing if all use third person
+# Check description format - should describe what + when
+grep -E '^description:' skills/*/SKILL.md
 ```
 
 ## Documentation

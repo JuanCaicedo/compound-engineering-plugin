@@ -172,6 +172,106 @@ Don't confuse with file paths like /tmp/output.md or /dev/null.`,
     expect(parsed.body).toContain("/dev/null")
   })
 
+  test("excludes commands with disable-model-invocation from prompts and skills", () => {
+    const plugin: ClaudePlugin = {
+      ...fixturePlugin,
+      commands: [
+        {
+          name: "normal-command",
+          description: "Normal command",
+          body: "Normal body.",
+          sourcePath: "/tmp/plugin/commands/normal.md",
+        },
+        {
+          name: "disabled-command",
+          description: "Disabled command",
+          disableModelInvocation: true,
+          body: "Disabled body.",
+          sourcePath: "/tmp/plugin/commands/disabled.md",
+        },
+      ],
+      agents: [],
+      skills: [],
+    }
+
+    const bundle = convertClaudeToCodex(plugin, {
+      agentMode: "subagent",
+      inferTemperature: false,
+      permissions: "none",
+    })
+
+    // Only normal command should produce a prompt
+    expect(bundle.prompts).toHaveLength(1)
+    expect(bundle.prompts[0].name).toBe("normal-command")
+
+    // Only normal command should produce a generated skill
+    const commandSkills = bundle.generatedSkills.filter((s) => s.name === "normal-command" || s.name === "disabled-command")
+    expect(commandSkills).toHaveLength(1)
+    expect(commandSkills[0].name).toBe("normal-command")
+  })
+
+  test("rewrites .claude/ paths to .codex/ in command skill bodies", () => {
+    const plugin: ClaudePlugin = {
+      ...fixturePlugin,
+      commands: [
+        {
+          name: "review",
+          description: "Review command",
+          body: `Read \`compound-engineering.local.md\` in the project root.
+
+If no settings file exists, auto-detect project type.
+
+Run \`/compound-engineering-setup\` to create a settings file.`,
+          sourcePath: "/tmp/plugin/commands/review.md",
+        },
+      ],
+      agents: [],
+      skills: [],
+    }
+
+    const bundle = convertClaudeToCodex(plugin, {
+      agentMode: "subagent",
+      inferTemperature: false,
+      permissions: "none",
+    })
+
+    const commandSkill = bundle.generatedSkills.find((s) => s.name === "review")
+    expect(commandSkill).toBeDefined()
+    const parsed = parseFrontmatter(commandSkill!.content)
+
+    // Tool-agnostic path in project root — no rewriting needed
+    expect(parsed.body).toContain("compound-engineering.local.md")
+  })
+
+  test("rewrites .claude/ paths in agent skill bodies", () => {
+    const plugin: ClaudePlugin = {
+      ...fixturePlugin,
+      commands: [],
+      skills: [],
+      agents: [
+        {
+          name: "config-reader",
+          description: "Reads config",
+          body: "Read `compound-engineering.local.md` for config.",
+          sourcePath: "/tmp/plugin/agents/config-reader.md",
+        },
+      ],
+    }
+
+    const bundle = convertClaudeToCodex(plugin, {
+      agentMode: "subagent",
+      inferTemperature: false,
+      permissions: "none",
+    })
+
+    const agentSkill = bundle.generatedSkills.find((s) => s.name === "config-reader")
+    expect(agentSkill).toBeDefined()
+    const parsed = parseFrontmatter(agentSkill!.content)
+
+    // Tool-agnostic path in project root — no rewriting needed
+    expect(parsed.body).toContain("compound-engineering.local.md")
+  })
+
   test("truncates generated skill descriptions to Codex limits and single line", () => {
     const longDescription = `Line one\nLine two ${"a".repeat(2000)}`
     const plugin: ClaudePlugin = {

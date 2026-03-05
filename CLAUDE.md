@@ -7,7 +7,7 @@ This repository is a Claude Code plugin marketplace that distributes the `compou
 ## Repository Structure
 
 ```
-every-marketplace/
+compound-engineering-plugin/
 ├── .claude-plugin/
 │   └── marketplace.json          # Marketplace catalog (lists available plugins)
 ├── docs/                         # Documentation site (GitHub Pages)
@@ -39,6 +39,20 @@ When working on this repository, follow the compounding engineering process:
 4. **Codify** → Update this CLAUDE.md with learnings
 
 ## Working with This Repository
+
+## CLI Release Versioning
+
+The repository has two separate version surfaces:
+
+1. **Root CLI package** — `package.json`, root `CHANGELOG.md`, and repo `v*` tags all share one release line managed by semantic-release on `main`.
+2. **Embedded marketplace plugin metadata** — `plugins/compound-engineering/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` track the distributed Claude plugin metadata and can differ from the root CLI package version.
+
+Rules:
+
+- Do not start a separate root CLI version stream. The root CLI follows the repo tag line.
+- Do not hand-bump the root CLI `package.json` or root `CHANGELOG.md` for routine feature work. Use conventional commits and let semantic-release write the released root version back to git.
+- Keep the root `CHANGELOG.md` header block aligned with `.releaserc.json` `changelogTitle`. If they drift, semantic-release will prepend release notes above the header.
+- Continue updating embedded plugin metadata when the plugin contents themselves change.
 
 ### Adding a New Plugin
 
@@ -275,9 +289,11 @@ git checkout main && git merge sync-upstream-$(date +%Y%m%d)
 
 When syncing with upstream, ensure these customizations are preserved:
 - Removed components: Rails/Ruby/Python agents and skills
-- Component counts: 25 agents (not 28), 12 skills (not 15)
 - Repository URLs: Point to JuanCaicedo/compound-engineering-plugin
 - Owner information: Juan Caicedo (fork)
+- `mr-comment-resolver` instead of `pr-comment-resolver`
+- `brandon-aldrich-reviewer` and `jeremy-gillick-reviewer` added
+- `generate-review-guide` skill added
 
 ### Handling CHANGELOG Conflicts
 
@@ -285,7 +301,7 @@ When merging upstream:
 1. Keep BOTH changelog entries (upstream and fork)
 2. Order by version number (higher first)
 3. Mark fork entries with `(Fork)` label
-4. Preserve all fork-specific versions (2.29.0, 2.30.0)
+4. Preserve all fork-specific versions
 
 ## Testing Changes
 
@@ -294,7 +310,7 @@ When merging upstream:
 1. Install the marketplace locally:
 
    ```bash
-   claude /plugin marketplace add /Users/yourusername/every-marketplace
+   claude /plugin marketplace add /Users/yourusername/compound-engineering-plugin
    ```
 
 2. Install the plugin:

@@ -1,6 +1,6 @@
 # Compounding Engineering Plugin
 
-> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed (27 agents vs 28 in upstream). Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
+> **Fork Information:** This is Juan Caicedo's fork with Rails, Ruby, and Python components removed. Original by Kieran Klaassen at [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
 
 AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.
 
@@ -8,16 +8,16 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 
 | Component | Count |
 |-----------|-------|
-| Agents | 27 |
-| Commands | 25 |
-| Skills | 14 |
+| Agents | 28 |
+| Commands | 29 |
+| Skills | 19 |
 | MCP Servers | 1 |
 
 ## Agents
 
 Agents are organized into categories for easier discovery.
 
-### Review (13)
+### Review (14)
 
 | Agent | Description |
 |-------|-------------|
@@ -29,19 +29,21 @@ Agents are organized into categories for easier discovery.
 | `data-migration-expert` | Validate ID mappings match production, check for swapped values |
 | `deployment-verification-agent` | Create Go/No-Go deployment checklists for risky data changes |
 | `jeremy-gillick-reviewer` | Readability, code organization, and React performance review |
+| `julik-frontend-races-reviewer` | Review JavaScript/Stimulus code for race conditions |
 | `kieran-typescript-reviewer` | TypeScript code review with strict conventions |
 | `pattern-recognition-specialist` | Analyze code for patterns and anti-patterns |
 | `performance-oracle` | Performance analysis and optimization |
+| `schema-drift-detector` | Detect unrelated schema.rb changes in PRs |
 | `security-sentinel` | Security audits and vulnerability assessments |
-| `julik-frontend-races-reviewer` | Review JavaScript/Stimulus code for race conditions |
 
-### Research (4)
+### Research (5)
 
 | Agent | Description |
 |-------|-------------|
 | `best-practices-researcher` | Gather external best practices and examples |
 | `framework-docs-researcher` | Research framework documentation and best practices |
 | `git-history-analyzer` | Analyze git history and code evolution |
+| `learnings-researcher` | Search institutional learnings for relevant past solutions |
 | `repo-research-analyst` | Research repository structure and conventions |
 
 ### Design (3)
@@ -72,35 +74,39 @@ Agents are organized into categories for easier discovery.
 
 ### Workflow Commands
 
-Core workflow commands use `workflows:` prefix to avoid collisions with built-in commands:
+Core workflow commands use `ce:` prefix to unambiguously identify them as compound-engineering commands:
 
 | Command | Description |
 |---------|-------------|
-| `/workflows:brainstorm` | Explore requirements and approaches before planning |
-| `/workflows:plan` | Create implementation plans |
-| `/workflows:review` | Run comprehensive code reviews |
-| `/workflows:work` | Execute work items systematically |
-| `/workflows:compound` | Document solved problems to compound team knowledge |
+| `/ce:brainstorm` | Explore requirements and approaches before planning |
+| `/ce:plan` | Create implementation plans |
+| `/ce:review` | Run comprehensive code reviews |
+| `/ce:work` | Execute work items systematically |
+| `/ce:compound` | Document solved problems to compound team knowledge |
+
+> **Deprecated aliases:** `/workflows:plan`, `/workflows:work`, `/workflows:review`, `/workflows:brainstorm`, `/workflows:compound` still work but show a deprecation warning. Use `ce:*` equivalents.
 
 ### Utility Commands
 
 | Command | Description |
 |---------|-------------|
+| `/lfg` | Full autonomous engineering workflow |
+| `/slfg` | Full autonomous workflow with swarm mode for parallel execution |
 | `/deepen-plan` | Enhance plans with parallel research agents for each section |
 | `/changelog` | Create engaging changelogs for recent merges |
 | `/create-agent-skill` | Create or edit Claude Code skills |
 | `/generate_command` | Generate new slash commands |
 | `/heal-skill` | Fix skill documentation issues |
-| `/plan_review` | Multi-agent plan review in parallel |
+| `/sync` | Sync Claude Code config across machines |
 | `/report-bug` | Report a bug in the plugin |
 | `/reproduce-bug` | Reproduce bugs using logs and console |
 | `/resolve_parallel` | Resolve TODO comments in parallel |
 | `/resolve_mr_parallel` | Resolve MR comments in parallel |
 | `/resolve_todo_parallel` | Resolve todos in parallel |
 | `/triage` | Triage and prioritize issues |
-| `/test-browser` | Run browser tests on MR-affected pages |
+| `/test-browser` | Run browser tests on PR-affected pages |
 | `/xcode-test` | Build and test iOS apps on simulator |
-| `/feature-video` | Record video walkthroughs and add to MR description |
+| `/feature-video` | Record video walkthroughs and add to PR description |
 
 ## Skills
 
@@ -130,10 +136,20 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 
 | Skill | Description |
 |-------|-------------|
+| `document-review` | Improve documents through structured self-review |
 | `every-style-editor` | Review copy for Every's style guide compliance |
 | `file-todos` | File-based todo tracking system |
 | `git-worktree` | Manage Git worktrees for parallel development |
 | `keyboard-troubleshooting` | Diagnose and fix keyboard input issues |
+| `proof` | Create, edit, and share documents via Proof collaborative editor |
+| `resolve-pr-parallel` | Resolve PR review comments in parallel |
+| `setup` | Configure which review agents run for your project |
+
+### Multi-Agent Orchestration
+
+| Skill | Description |
+|-------|-------------|
+| `orchestrating-swarms` | Comprehensive guide to multi-agent swarm orchestration |
 
 ### File Transfer
 
@@ -178,25 +194,6 @@ Core workflow commands use `workflows:` prefix to avoid collisions with built-in
 Supports 100+ frameworks including Rails, React, Next.js, Vue, Django, Laravel, and more.
 
 MCP servers start automatically when the plugin is enabled.
-
-## GitLab Integration
-
-This plugin uses **glab CLI** for GitLab merge request and issue operations. Install it:
-
-```bash
-brew install glab
-glab auth login
-```
-
-Commands that use glab:
-- `/workflows:review` - Fetch MR metadata and checkout branches
-- `/workflows:work` - Create merge requests
-- `/workflows:plan` - Create GitLab issues
-- `/changelog` - Lookup merged MRs
-- `/feature-video` - Update MR descriptions with video demos
-- `/test-browser` - Get changed files from MRs
-- `/resolve_mr_parallel` - Resolve MR comments
-- `/report-bug` - Create bug report issues
 
 ## Browser Automation
 

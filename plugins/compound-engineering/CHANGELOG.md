@@ -5,6 +5,28 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.1] - 2026-03-05 (Fork)
+
+### Changed
+
+- **Upstream sync** - Merged upstream changes through v2.38.1 (2.29.0–2.38.1)
+  - New `ce:*` commands replacing `workflows:*` (with deprecated aliases)
+  - New skills: setup, proof, document-review, orchestrating-swarms, resolve-pr-parallel
+  - New agents: schema-drift-detector
+  - CLI improvements: Windsurf, OpenClaw, Qwen, Copilot, Gemini, Kiro targets
+  - Context token optimization (79% reduction)
+  - Many bug fixes and improvements
+
+### Maintained Fork Customizations
+
+- Rails/Ruby/Python components remain removed
+- `mr-comment-resolver` preserved (not `pr-comment-resolver`)
+- `brandon-aldrich-reviewer` and `jeremy-gillick-reviewer` preserved
+- `generate-review-guide` and `keyboard-troubleshooting` skills preserved
+- All repository URLs point to JuanCaicedo/compound-engineering-plugin
+
+---
+
 ## [2.32.0] - 2026-03-03 (Fork)
 
 ### Added
@@ -26,11 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`/agent_review` Command** - Invoke any reviewer agent for focused code review
-  - Syntax: `/agent_review <reviewer-name> [file-or-pr]`
-  - Supports all 13 reviewer agents (jeremy, brandon, kieran, security, etc.)
-  - Accepts optional file path or PR/MR number for scope
-  - Provides reviewer-specific feedback with authentic communication style
-  - Examples: `/agent_review jeremy`, `/agent_review brandon 123`, `/agent_review security .`
 
 ---
 
@@ -39,14 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Jeremy Gillick Reviewer Agent** - Code review agent focused on readability, code organization, and React performance
-  - Advocates for extracting inline logic to useCallback/dedicated functions
-  - Eliminates code duplication by identifying and consolidating similar code
-  - Emphasizes useMemo/useCallback for React performance optimization
-  - Values clear variable naming over nested complexity
-  - Promotes proper file/component organization and bundling
-  - Provides detailed educational explanations with reasoning
-  - Uses praise:/nit: communication style with questions to guide
-  - Based on analysis of Jeremy's GitLab MR comments
 
 ---
 
@@ -55,12 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Brandon Aldrich Reviewer Agent** - Code review agent focused on architecture, performance, and component design
-  - Questions module boundaries and cross-module dependencies
-  - Suggests performance optimizations using batched/suspenseful queries
-  - Advocates for component simplicity and minimal call-site complexity
-  - Provides specific codebase examples and references
-  - Uses Request/Question/Praise communication style
-  - Balances critique with encouragement
 
 ---
 
@@ -68,17 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Upstream sync** - Merged upstream changes through commit 9f93f54 (9 commits)
-  - Plan file protection from review deletion (#142)
-  - GitHub CI workflow for tests
-  - Codex syntax transformation fixes
-  - README badge updates
-
-### Maintained Fork Customizations
-
-- Rails/Ruby/Python components remain removed (25 agents, 12 skills)
-- All repository URLs point to JuanCaicedo/compound-engineering-plugin
-- Fork-specific metadata preserved
+- **Upstream sync** - Merged upstream changes through commit 9f93f54
 
 ---
 
@@ -86,9 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Python-specific components** - Removed Python-focused agents to streamline the plugin
-  - Agents: `kieran-python-reviewer`
-  - Keywords: Removed `python` from plugin metadata
+- **Python-specific components** - Removed `kieran-python-reviewer`
 
 ---
 
@@ -96,14 +87,215 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Rails/Ruby-specific components** - Removed Rails and Ruby-focused agents and skills to streamline the plugin
-  - Agents: `dhh-rails-reviewer`, `kieran-rails-reviewer`
-  - Skills: `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`
-  - Keywords: Removed `rails` and `ruby` from plugin metadata
+- **Rails/Ruby-specific components** - Removed `dhh-rails-reviewer`, `kieran-rails-reviewer`, `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`
 
 ---
 
-## [2.28.0] - 2026-01-21 (Upstream)
+## [2.38.1] - 2026-03-01 (Upstream)
+
+### Fixed
+
+- **Cross-platform `AskUserQuestion` fallback** — `setup` skill and `create-new-skill`/`add-workflow` workflows now include an "Interaction Method" preamble that instructs non-Claude LLMs (Codex, Gemini, Copilot, Kiro) to use numbered lists instead of `AskUserQuestion`, preventing silent auto-configuration. ([#204](https://github.com/EveryInc/compound-engineering-plugin/issues/204))
+- **Codex AGENTS.md `AskUserQuestion` mapping** — Strengthened from "ask the user in chat" to structured numbered-list guidance with multi-select support and a "never skip or auto-configure" rule.
+- **Skill compliance checklist** — Added `AskUserQuestion` lint rule to `CLAUDE.md` to prevent recurrence.
+
+---
+
+## [2.38.0] - 2026-03-01
+
+### Changed
+- `workflows:plan`, `workflows:work`, `workflows:review`, `workflows:brainstorm`, `workflows:compound` renamed to `ce:plan`, `ce:work`, `ce:review`, `ce:brainstorm`, `ce:compound` for clarity — the `ce:` prefix unambiguously identifies these as compound-engineering commands
+
+### Deprecated
+- `workflows:*` commands — all five remain functional as aliases that forward to their `ce:*` equivalents with a deprecation notice. Will be removed in a future version.
+
+---
+
+## [2.37.2] - 2026-03-01
+
+### Added
+
+- **CLI: auto-detect install targets** — `bunx @every-env/compound-plugin install compound-engineering --to all` auto-detects installed AI coding tools and installs to all of them in one command. ([#191](https://github.com/EveryInc/compound-engineering-plugin/pull/191))
+- **CLI: Gemini sync** — `sync --target gemini` symlinks personal skills to `.gemini/skills/` and merges MCP servers into `.gemini/settings.json`. ([#191](https://github.com/EveryInc/compound-engineering-plugin/pull/191))
+- **CLI: sync defaults to `--target all`** — Running `sync` with no target now syncs to all detected tools automatically. ([#191](https://github.com/EveryInc/compound-engineering-plugin/pull/191))
+
+---
+
+## [2.37.1] - 2026-03-01
+
+### Fixed
+
+- **`/workflows:review` rendering** — Fixed broken markdown output: "Next Steps" items 3 & 4 and Severity Breakdown no longer leak outside the Summary Report template, section numbering fixed (was jumping 5→7, now correct), removed orphaned fenced code block delimiters that caused the entire End-to-End Testing section to render as a code block, and fixed unclosed quoted string in section 1. ([#214](https://github.com/EveryInc/compound-engineering-plugin/pull/214)) — thanks [@XSAM](https://github.com/XSAM)!
+- **`.worktrees` gitignore** — Added `.worktrees/` to `.gitignore` to prevent worktree directories created by the `git-worktree` skill from being tracked. ([#213](https://github.com/EveryInc/compound-engineering-plugin/pull/213)) — thanks [@XSAM](https://github.com/XSAM)!
+
+---
+
+## [2.37.0] - 2026-03-01
+
+### Added
+
+- **`proof` skill** — Create, edit, comment on, and share markdown documents via Proof's web API and local bridge. Supports document creation, track-changes suggestions, comments, and bulk rewrites. No authentication required for creating shared documents.
+- **Optional Proof sharing in `/workflows:brainstorm`** — "Share to Proof" is now a menu option in Phase 4 handoff, letting you upload the brainstorm document when you want to, rather than automatically on every run.
+- **Optional Proof sharing in `/workflows:plan`** — "Share to Proof" is now a menu option in Post-Generation Options, letting you upload the plan file on demand rather than automatically.
+
+---
+
+## [2.36.0] - 2026-03-01
+
+### Added
+
+- **OpenClaw install target** — `bunx @every-env/compound-plugin install compound-engineering --to openclaw` now installs the plugin to OpenClaw's extensions directory. ([#217](https://github.com/EveryInc/compound-engineering-plugin/pull/217)) — thanks [@TrendpilotAI](https://github.com/TrendpilotAI)!
+- **Qwen Code install target** — `bunx @every-env/compound-plugin install compound-engineering --to qwen` now installs the plugin to Qwen Code's extensions directory. ([#220](https://github.com/EveryInc/compound-engineering-plugin/pull/220)) — thanks [@rlam3](https://github.com/rlam3)!
+- **Windsurf install target** — `bunx @every-env/compound-plugin install compound-engineering --to windsurf` converts plugins to Windsurf format. Agents become Windsurf skills, commands become flat workflows, and MCP servers write to `mcp_config.json`. Defaults to global scope (`~/.codeium/windsurf/`); use `--scope workspace` for project-level output. ([#202](https://github.com/EveryInc/compound-engineering-plugin/pull/202)) — thanks [@rburnham52](https://github.com/rburnham52)!
+
+### Fixed
+
+- **`create-agent-skill` / `heal-skill` YAML crash** — `argument-hint` values containing special characters now properly quoted to prevent YAML parse errors in the Claude Code TUI. ([#219](https://github.com/EveryInc/compound-engineering-plugin/pull/219)) — thanks [@solon](https://github.com/solon)!
+- **`resolve-pr-parallel` skill name** — Renamed from `resolve_pr_parallel` (underscore) to `resolve-pr-parallel` (hyphen) to match the standard naming convention. ([#202](https://github.com/EveryInc/compound-engineering-plugin/pull/202)) — thanks [@rburnham52](https://github.com/rburnham52)!
+
+---
+
+## [2.35.2] - 2026-02-20
+
+### Changed
+
+- **`/workflows:plan` brainstorm integration** — When plan finds a brainstorm document, it now heavily references it throughout. Added `origin:` frontmatter field to plan templates, brainstorm cross-check in final review, and "Sources" section at the bottom of all three plan templates (MINIMAL, MORE, A LOT). Brainstorm decisions are carried forward with explicit references (`see brainstorm: <path>`) and a mandatory scan before finalizing ensures nothing is dropped.
+
+---
+
+## [2.35.1] - 2026-02-18
+
+### Changed
+
+- **`/workflows:work` system-wide test check** — Added "System-Wide Test Check" to the task execution loop. Before marking a task done, forces five questions: what callbacks/middleware fire when this runs? Do tests exercise the real chain or just mocked isolation? Can failure leave orphaned state? What other interfaces need the same change? Do error strategies align across layers? Includes skip criteria for leaf-node changes. Also added integration test guidance to the "Test Continuously" section.
+- **`/workflows:plan` system-wide impact templates** — Added "System-Wide Impact" section to MORE and A LOT plan templates (interaction graph, error propagation, state lifecycle, API surface parity, integration test scenarios) as lightweight prompts to flag risks during planning.
+
+---
+
+## [2.35.0] - 2026-02-17
+
+### Fixed
+
+- **`/lfg` and `/slfg` first-run failures** — Made ralph-loop step optional with graceful fallback when `ralph-wiggum` skill is not installed (#154). Added explicit "do not stop" instruction across all steps (#134).
+- **`/workflows:plan` not writing file in pipeline** — Added mandatory "Write Plan File" step with explicit Write tool instructions before Post-Generation Options. The file is now always written to disk before any interactive prompts (#155). Also adds pipeline-mode note to skip AskUserQuestion calls when invoked from LFG/SLFG (#134).
+- **Agent namespace typo in `/workflows:plan`** — `Task spec-flow-analyzer(...)` now uses the full qualified name `Task compound-engineering:workflow:spec-flow-analyzer(...)` to prevent Claude from prepending the wrong `workflows:` prefix (#193).
+
+---
+
+## [2.34.0] - 2026-02-14
+
+### Added
+
+- **Gemini CLI target** — New converter target for [Gemini CLI](https://github.com/google-gemini/gemini-cli). Install with `--to gemini` to convert agents to `.gemini/skills/*/SKILL.md`, commands to `.gemini/commands/*.toml` (TOML format with `description` + `prompt`), and MCP servers to `.gemini/settings.json`. Skills pass through unchanged (identical SKILL.md standard). Namespaced commands create directory structure (`workflows:plan` → `commands/workflows/plan.toml`). 29 new tests. ([#190](https://github.com/EveryInc/compound-engineering-plugin/pull/190))
+
+---
+
+## [2.33.1] - 2026-02-13
+
+### Changed
+
+- **`/workflows:plan` command** - All plan templates now include `status: active` in YAML frontmatter. Plans are created with `status: active` and marked `status: completed` when work finishes.
+- **`/workflows:work` command** - Phase 4 now updates plan frontmatter from `status: active` to `status: completed` after shipping. Agents can grep for status to distinguish current vs historical plans.
+
+---
+
+## [2.33.0] - 2026-02-12
+
+### Added
+
+- **`setup` skill** — Interactive configurator for review agents
+  - Auto-detects project type (Rails, Python, TypeScript, etc.)
+  - Two paths: "Auto-configure" (one click) or "Customize" (pick stack, focus areas, depth)
+  - Writes `compound-engineering.local.md` in project root (tool-agnostic — works for Claude, Codex, OpenCode)
+  - Invoked automatically by `/workflows:review` when no settings file exists
+- **`learnings-researcher` in `/workflows:review`** — Always-run agent that searches `docs/solutions/` for past issues related to the PR
+- **`schema-drift-detector` wired into `/workflows:review`** — Conditional agent for PRs with migrations
+
+### Changed
+
+- **`/workflows:review`** — Now reads review agents from `compound-engineering.local.md` settings file. Falls back to invoking setup skill if no file exists.
+- **`/workflows:work`** — Review agents now configurable via settings file
+- **`/release-docs` command** — Moved from plugin to local `.claude/commands/` (repo maintenance, not distributed)
+
+### Removed
+
+- **`/technical_review` command** — Superseded by configurable review agents
+
+---
+
+## [2.32.0] - 2026-02-11
+
+### Added
+
+- **Factory Droid target** — New converter target for [Factory Droid](https://docs.factory.ai). Install with `--to droid` to output agents, commands, and skills to `~/.factory/`. Includes tool name mapping (Claude → Factory), namespace prefix stripping, Task syntax conversion, and agent reference rewriting. 13 new tests (9 converter + 4 writer). ([#174](https://github.com/EveryInc/compound-engineering-plugin/pull/174))
+
+---
+
+## [2.31.1] - 2026-02-09
+
+### Changed
+
+- **`dspy-ruby` skill** — Complete rewrite to DSPy.rb v0.34.3 API: `.call()` / `result.field` patterns, `T::Enum` classes, `DSPy::Tools::Base` / `Toolset`. Added events system, lifecycle callbacks, fiber-local LM context, GEPA optimization, evaluation framework, typed context pattern, BAML/TOON schema formats, storage system, score reporting, RubyLLM adapter. 5 reference files (2 new: toolsets, observability), 3 asset templates rewritten.
+
+## [2.31.0] - 2026-02-08
+
+### Added
+
+- **`document-review` skill** — Brainstorm and plan refinement through structured review ([@Trevin Chow](https://github.com/trevin))
+- **`/sync` command** — Sync Claude Code personal config across machines ([@Terry Li](https://github.com/terryli))
+
+### Changed
+
+- **Context token optimization (79% reduction)** — Plugin was consuming 316% of the context description budget, causing Claude Code to silently exclude components. Now at 65% with room to grow:
+  - All 29 agent descriptions trimmed from ~1,400 to ~180 chars avg (examples moved to agent body)
+  - 18 manual commands marked `disable-model-invocation: true` (side-effect commands like `/lfg`, `/deploy-docs`, `/triage`, etc.)
+  - 6 manual skills marked `disable-model-invocation: true` (`orchestrating-swarms`, `git-worktree`, `skill-creator`, `compound-docs`, `file-todos`, `resolve-pr-parallel`)
+- **git-worktree**: Remove confirmation prompt for worktree creation ([@Sam Xie](https://github.com/XSAM))
+- **Prevent subagents from writing intermediary files** in compound workflow ([@Trevin Chow](https://github.com/trevin))
+
+### Fixed
+
+- Fix crash when hook entries have no matcher ([@Roberto Mello](https://github.com/robertomello))
+- Fix git-worktree detection where `.git` is a file, not a directory ([@David Alley](https://github.com/davidalley))
+- Backup existing config files before overwriting in sync ([@Zac Williams](https://github.com/zacwilliams))
+- Note new repository URL ([@Aarni Koskela](https://github.com/aarnikoskela))
+- Plugin component counts corrected: 29 agents, 24 commands, 18 skills
+
+---
+
+## [2.30.0] - 2026-02-05
+
+### Added
+
+- **`orchestrating-swarms` skill** - Comprehensive guide to multi-agent orchestration
+  - Covers primitives: Agent, Team, Teammate, Leader, Task, Inbox, Message, Backend
+  - Documents two spawning methods: subagents vs teammates
+  - Explains all 13 TeammateTool operations
+  - Includes orchestration patterns: Parallel Specialists, Pipeline, Self-Organizing Swarm
+  - Details spawn backends: in-process, tmux, iterm2
+  - Provides complete workflow examples
+- **`/slfg` command** - Swarm-enabled variant of `/lfg` that uses swarm mode for parallel execution
+
+### Changed
+
+- **`/workflows:work` command** - Added optional Swarm Mode section for parallel execution with coordinated agents
+
+---
+
+## [2.29.0] - 2026-02-04
+
+### Added
+
+- **`schema-drift-detector` agent** - Detects unrelated schema.rb changes in PRs
+  - Compares schema.rb diff against migrations in the PR
+  - Catches columns, indexes, and tables from other branches
+  - Prevents accidental inclusion of local database state
+  - Provides clear fix instructions (checkout + migrate)
+  - Essential pre-merge check for any PR with database changes
+
+---
+
+## [2.28.0] - 2026-01-21
 
 ### Added
 

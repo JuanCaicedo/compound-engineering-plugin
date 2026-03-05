@@ -19,7 +19,8 @@ export function convertClaudeToCodex(
 
   const usedSkillNames = new Set<string>(skillDirs.map((skill) => normalizeName(skill.name)))
   const commandSkills: CodexGeneratedSkill[] = []
-  const prompts = plugin.commands.map((command) => {
+  const invocableCommands = plugin.commands.filter((command) => !command.disableModelInvocation)
+  const prompts = invocableCommands.map((command) => {
     const promptName = uniqueName(normalizeName(command.name), promptNames)
     const commandSkill = convertCommandSkill(command, usedSkillNames)
     commandSkills.push(commandSkill)
@@ -45,7 +46,7 @@ function convertAgent(agent: ClaudeAgent, usedNames: Set<string>): CodexGenerate
   )
   const frontmatter: Record<string, unknown> = { name, description }
 
-  let body = agent.body.trim()
+  let body = transformContentForCodex(agent.body.trim())
   if (agent.capabilities && agent.capabilities.length > 0) {
     const capabilities = agent.capabilities.map((capability) => `- ${capability}`).join("\n")
     body = `## Capabilities\n${capabilities}\n\n${body}`.trim()
@@ -120,7 +121,12 @@ function transformContentForCodex(body: string): string {
     return `/prompts:${normalizedName}`
   })
 
-  // 3. Transform @agent-name references
+  // 3. Rewrite .claude/ paths to .codex/
+  result = result
+    .replace(/~\/\.claude\//g, "~/.codex/")
+    .replace(/\.claude\//g, ".codex/")
+
+  // 4. Transform @agent-name references
   // Match: @agent-name in text (not emails)
   const agentRefPattern = /@([a-z][a-z0-9-]*-(?:agent|reviewer|researcher|analyst|specialist|oracle|sentinel|guardian|strategist))/gi
   result = result.replace(agentRefPattern, (_match, agentName: string) => {

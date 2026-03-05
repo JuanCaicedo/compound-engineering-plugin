@@ -1,6 +1,7 @@
 ---
 name: file-todos
 description: This skill should be used when managing the file-based todo tracking system in the todos/ directory. It provides workflows for creating todos, managing status and dependencies, conducting triage, and integrating with slash commands and code review processes.
+disable-model-invocation: true
 ---
 
 # File-Based Todo Tracking Skill
@@ -184,7 +185,7 @@ Work logs serve as:
 
 | Trigger | Flow | Tool |
 |---------|------|------|
-| Code review | `/workflows:review` → Findings → `/triage` → Todos | Review agent + skill |
+| Code review | `/ce:review` → Findings → `/triage` → Todos | Review agent + skill |
 | PR comments | `/resolve_pr_parallel` → Individual fixes → Todos | gh CLI + skill |
 | Code TODOs | `/resolve_todo_parallel` → Fixes + Complex todos | Agent + skill |
 | Planning | Brainstorm → Create todo → Work → Complete | Skill |
