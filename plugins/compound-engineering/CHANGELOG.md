@@ -5,6 +5,35 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.40.0] - 2026-03-16 (Fork)
+
+### Changed
+
+- **Upstream sync** - Merged upstream changes through v2.37.1 (upstream v2.34.5–v2.37.1)
+  - Commands migrated to skills directory structure
+  - `skill-creator` skill removed (replaced by Anthropic's official version)
+  - `every-style-editor` agent removed (duplicate of skill)
+  - Context budget precheck for ce:compound
+  - ce:plan daily sequence numbers
+  - ce:review serial mode
+  - agent-browser inspection & debugging commands
+  - test-browser port detection
+  - lfg phase gating
+  - Context7 API key auth fix
+  - Fully-qualified agent namespace directives
+  - Privacy and security policy docs added
+  - Many bug fixes and improvements
+
+### Maintained Fork Customizations
+
+- Rails/Ruby/Python components remain removed
+- `mr-comment-resolver` preserved (not `pr-comment-resolver`)
+- `brandon-aldrich-reviewer` and `jeremy-gillick-reviewer` preserved
+- `generate-review-guide` and `keyboard-troubleshooting` skills preserved
+- All repository URLs point to JuanCaicedo/compound-engineering-plugin
+
+---
+
 ## [2.38.1] - 2026-03-05 (Fork)
 
 ### Changed
@@ -88,6 +117,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Rails/Ruby-specific components** - Removed `dhh-rails-reviewer`, `kieran-rails-reviewer`, `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`
+
+---
+
+## [2.39.0] - 2026-03-10 (Upstream)
+
+### Added
+
+- **ce:compound context budget precheck** — Warns when context is constrained and offers compact-safe mode to avoid compaction mid-compound ([#235](https://github.com/EveryInc/compound-engineering-plugin/pull/235))
+- **ce:plan daily sequence numbers** — Plan filenames now include a 3-digit daily sequence number (e.g., `2026-03-10-001-feat-...`) to prevent collisions ([#238](https://github.com/EveryInc/compound-engineering-plugin/pull/238))
+- **ce:review serial mode** — Pass `--serial` flag (or auto-detects when 6+ agents configured) to run review agents sequentially, preventing context limit crashes ([#237](https://github.com/EveryInc/compound-engineering-plugin/pull/237))
+- **agent-browser inspection & debugging commands** — Added JS eval, console/errors, network, storage, device emulation, element debugging, recording/tracing, tabs, and advanced mouse commands to agent-browser skill ([#236](https://github.com/EveryInc/compound-engineering-plugin/pull/236))
+- **test-browser port detection** — Auto-detects dev server port from CLAUDE.md, package.json, or .env files; supports `--port` flag ([#233](https://github.com/EveryInc/compound-engineering-plugin/pull/233))
+- **lfg phase gating** — Added explicit GATE checks between /lfg steps to enforce plan-before-work ordering ([#231](https://github.com/EveryInc/compound-engineering-plugin/pull/231))
+
+### Fixed
+
+- **Context7 API key auth** — MCP server config now passes `CONTEXT7_API_KEY` via `x-api-key` header to avoid anonymous rate limits ([#232](https://github.com/EveryInc/compound-engineering-plugin/pull/232))
+- **CLI: MCP server merge order** — `sync` now correctly overwrites same-named MCP servers with plugin values instead of preserving stale entries
+
+### Removed
+
+- **every-style-editor agent** — Removed duplicate agent; functionality already exists as `every-style-editor` skill ([#234](https://github.com/EveryInc/compound-engineering-plugin/pull/234))
+
+### Contributors
+
+- Matt Van Horn ([@mvanhorn](https://x.com/mvanhorn)) — PRs #231–#238
 
 ---
 

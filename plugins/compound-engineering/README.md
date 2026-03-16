@@ -8,9 +8,9 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 
 | Component | Count |
 |-----------|-------|
-| Agents | 28 |
-| Commands | 29 |
-| Skills | 19 |
+| Agents | 27 |
+| Commands | 2 |
+| Skills | 45 |
 | MCP Servers | 1 |
 
 ## Agents
@@ -54,12 +54,11 @@ Agents are organized into categories for easier discovery.
 | `design-iterator` | Iteratively refine UI through systematic design iterations |
 | `figma-design-sync` | Synchronize web implementations with Figma designs |
 
-### Workflow (5)
+### Workflow (4)
 
 | Agent | Description |
 |-------|-------------|
 | `bug-reproduction-validator` | Systematically reproduce and validate bug reports |
-| `every-style-editor` | Edit content to conform to Every's style guide |
 | `lint` | Run linting and code quality checks on Ruby and ERB files |
 | `mr-comment-resolver` | Address MR comments and implement fixes |
 | `spec-flow-analyzer` | Analyze user flows and identify gaps in specifications |
@@ -72,58 +71,68 @@ Agents are organized into categories for easier discovery.
 
 ## Commands
 
-### Workflow Commands
-
-Core workflow commands use `ce:` prefix to unambiguously identify them as compound-engineering commands:
-
 | Command | Description |
 |---------|-------------|
-| `/ce:brainstorm` | Explore requirements and approaches before planning |
-| `/ce:plan` | Create implementation plans |
-| `/ce:review` | Run comprehensive code reviews |
-| `/ce:work` | Execute work items systematically |
-| `/ce:compound` | Document solved problems to compound team knowledge |
-
-> **Deprecated aliases:** `/workflows:plan`, `/workflows:work`, `/workflows:review`, `/workflows:brainstorm`, `/workflows:compound` still work but show a deprecation warning. Use `ce:*` equivalents.
-
-### Utility Commands
-
-| Command | Description |
-|---------|-------------|
-| `/lfg` | Full autonomous engineering workflow |
-| `/slfg` | Full autonomous workflow with swarm mode for parallel execution |
-| `/deepen-plan` | Enhance plans with parallel research agents for each section |
-| `/changelog` | Create engaging changelogs for recent merges |
-| `/create-agent-skill` | Create or edit Claude Code skills |
-| `/generate_command` | Generate new slash commands |
-| `/heal-skill` | Fix skill documentation issues |
-| `/sync` | Sync Claude Code config across machines |
-| `/report-bug` | Report a bug in the plugin |
-| `/reproduce-bug` | Reproduce bugs using logs and console |
-| `/resolve_parallel` | Resolve TODO comments in parallel |
-| `/resolve_mr_parallel` | Resolve MR comments in parallel |
-| `/resolve_todo_parallel` | Resolve todos in parallel |
-| `/triage` | Triage and prioritize issues |
-| `/test-browser` | Run browser tests on PR-affected pages |
-| `/xcode-test` | Build and test iOS apps on simulator |
-| `/feature-video` | Record video walkthroughs and add to PR description |
+| `/agent_review` | Invoke a specific reviewer agent for focused code review |
+| `/resolve_mr_parallel` | Resolve MR comments using parallel processing |
 
 ## Skills
+
+> **Note:** Most former commands were migrated to skills in v2.39.0. They work identically as `/skill-name`.
+
+### Core Workflows
+
+Core workflow skills use `ce-` prefix (invoked as `/ce:brainstorm`, `/ce:plan`, etc.):
+
+| Skill | Description |
+|-------|-------------|
+| `ce-brainstorm` | Explore requirements and approaches before planning |
+| `ce-plan` | Create implementation plans |
+| `ce-review` | Run comprehensive code reviews |
+| `ce-work` | Execute work items systematically |
+| `ce-compound` | Document solved problems to compound team knowledge |
+
+> **Deprecated aliases:** `workflows-*` skills still work as aliases that forward to `ce-*` equivalents.
+
+### Automation & Orchestration
+
+| Skill | Description |
+|-------|-------------|
+| `lfg` | Full autonomous engineering workflow |
+| `slfg` | Full autonomous workflow with swarm mode |
+| `deepen-plan` | Enhance plans with parallel research agents |
+| `orchestrating-swarms` | Guide to multi-agent swarm orchestration |
+| `resolve_parallel` | Resolve TODO comments in parallel |
+| `resolve_todo_parallel` | Resolve todos in parallel |
+| `resolve-pr-parallel` | Resolve PR review comments in parallel |
+
+### Development Tools
+
+| Skill | Description |
+|-------|-------------|
+| `changelog` | Create engaging changelogs for recent merges |
+| `create-agent-skill` | Create or edit Claude Code skills |
+| `create-agent-skills` | Expert guidance for creating Claude Code skills |
+| `generate_command` | Generate new slash commands |
+| `heal-skill` | Fix skill documentation issues |
+| `compound-docs` | Capture solved problems as categorized documentation |
+| `frontend-design` | Create production-grade frontend interfaces |
+
+### Testing & Browser
+
+| Skill | Description |
+|-------|-------------|
+| `test-browser` | Run browser tests on MR-affected pages |
+| `test-xcode` | Build and test iOS apps on simulator |
+| `agent-browser` | CLI-based browser automation using Vercel's agent-browser |
+| `reproduce-bug` | Reproduce bugs using logs and console |
 
 ### Architecture & Design
 
 | Skill | Description |
 |-------|-------------|
 | `agent-native-architecture` | Build AI agents using prompt-native architecture |
-
-### Development Tools
-
-| Skill | Description |
-|-------|-------------|
-| `compound-docs` | Capture solved problems as categorized documentation |
-| `create-agent-skills` | Expert guidance for creating Claude Code skills |
-| `frontend-design` | Create production-grade frontend interfaces |
-| `skill-creator` | Guide for creating effective Claude Code skills |
+| `agent-native-audit` | Comprehensive agent-native architecture review |
 
 ### Planning & Review
 
@@ -131,42 +140,28 @@ Core workflow commands use `ce:` prefix to unambiguously identify them as compou
 |-------|-------------|
 | `brainstorming` | Explore requirements and approaches through collaborative dialogue |
 | `generate-review-guide` | Generate comprehensive reviewer's guides from GitLab MR URLs |
+| `document-review` | Improve documents through structured self-review |
+| `setup` | Configure which review agents run for your project |
 
 ### Content & Workflow
 
 | Skill | Description |
 |-------|-------------|
-| `document-review` | Improve documents through structured self-review |
 | `every-style-editor` | Review copy for Every's style guide compliance |
 | `file-todos` | File-based todo tracking system |
 | `git-worktree` | Manage Git worktrees for parallel development |
 | `keyboard-troubleshooting` | Diagnose and fix keyboard input issues |
 | `proof` | Create, edit, and share documents via Proof collaborative editor |
-| `resolve-pr-parallel` | Resolve PR review comments in parallel |
-| `setup` | Configure which review agents run for your project |
+| `triage` | Triage and prioritize issues |
+| `report-bug` | Report a bug in the plugin |
+| `feature-video` | Record video walkthroughs and add to MR description |
+| `deploy-docs` | Deploy documentation site |
 
-### Multi-Agent Orchestration
-
-| Skill | Description |
-|-------|-------------|
-| `orchestrating-swarms` | Comprehensive guide to multi-agent swarm orchestration |
-
-### File Transfer
+### File Transfer & Image
 
 | Skill | Description |
 |-------|-------------|
 | `rclone` | Upload files to S3, Cloudflare R2, Backblaze B2, and cloud storage |
-
-### Browser Automation
-
-| Skill | Description |
-|-------|-------------|
-| `agent-browser` | CLI-based browser automation using Vercel's agent-browser |
-
-### Image Generation
-
-| Skill | Description |
-|-------|-------------|
 | `gemini-imagegen` | Generate and edit images using Google's Gemini API |
 
 **gemini-imagegen features:**
@@ -194,6 +189,8 @@ Core workflow commands use `ce:` prefix to unambiguously identify them as compou
 Supports 100+ frameworks including Rails, React, Next.js, Vue, Django, Laravel, and more.
 
 MCP servers start automatically when the plugin is enabled.
+
+**Authentication:** To avoid anonymous rate limits, set the `CONTEXT7_API_KEY` environment variable with your Context7 API key. The plugin passes this automatically via the `x-api-key` header. Without it, requests go unauthenticated and will quickly hit the anonymous quota limit.
 
 ## Browser Automation
 
@@ -225,13 +222,16 @@ claude /plugin install compound-engineering
   "mcpServers": {
     "context7": {
       "type": "http",
-      "url": "https://mcp.context7.com/mcp"
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "x-api-key": "${CONTEXT7_API_KEY:-}"
+      }
     }
   }
 }
 ```
 
-Or add it globally in `~/.claude/settings.json` for all projects.
+Set `CONTEXT7_API_KEY` in your environment to authenticate. Or add it globally in `~/.claude/settings.json` for all projects.
 
 ## Version History
 

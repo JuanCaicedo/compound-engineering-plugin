@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Release numbering now follows the repository `v*` tag line. Starting at `v2.34.0`, the root CLI package and this changelog stay on that shared version stream. Older entries below retain the previous `0.x` CLI numbering.
 
+## [2.37.1](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.37.0...v2.37.1) (2026-03-16)
+
+
+### Bug Fixes
+
+* **compound:** remove overly defensive context budget precheck ([#278](https://github.com/EveryInc/compound-engineering-plugin/issues/278)) ([#279](https://github.com/EveryInc/compound-engineering-plugin/issues/279)) ([84ca52e](https://github.com/EveryInc/compound-engineering-plugin/commit/84ca52efdb198c7c8ae6c94ca06fc02d2c3ef648))
+
+# [2.37.0](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.36.5...v2.37.0) (2026-03-15)
+
+
+### Features
+
+* sync agent-browser skill with upstream vercel-labs/agent-browser ([24860ec](https://github.com/EveryInc/compound-engineering-plugin/commit/24860ec3f1f1e7bfdee0f4408636ada1a3bb8f75))
+
+## [2.36.5](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.36.4...v2.36.5) (2026-03-15)
+
+
+### Bug Fixes
+
+* **create-agent-skills:** remove literal dynamic context directives that break skill loading ([4b4d1ae](https://github.com/EveryInc/compound-engineering-plugin/commit/4b4d1ae2707895d6d4fd2e60a64d83ca50f094a6)), closes [anthropics/claude-code#27149](https://github.com/anthropics/claude-code/issues/27149) [#13655](https://github.com/EveryInc/compound-engineering-plugin/issues/13655)
+
+## [2.36.4](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.36.3...v2.36.4) (2026-03-14)
+
+
+### Bug Fixes
+
+* **skills:** use fully-qualified agent namespace in Task invocations ([026602e](https://github.com/EveryInc/compound-engineering-plugin/commit/026602e6247d63a83502b80e72cd318232a06af7)), closes [#251](https://github.com/EveryInc/compound-engineering-plugin/issues/251)
+
+## [2.36.3](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.36.2...v2.36.3) (2026-03-13)
+
+
+### Bug Fixes
+
+* **targets:** nest colon-separated command names into directories ([a84682c](https://github.com/EveryInc/compound-engineering-plugin/commit/a84682cd35e94b0408f6c6a990af0732c2acf03f)), closes [#226](https://github.com/EveryInc/compound-engineering-plugin/issues/226)
+
+## [2.36.2](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.36.1...v2.36.2) (2026-03-13)
+
+
+### Bug Fixes
+
+* **plan:** remove deprecated /technical_review references ([0ab9184](https://github.com/EveryInc/compound-engineering-plugin/commit/0ab91847f278efba45477462d8e93db5f068e058)), closes [#244](https://github.com/EveryInc/compound-engineering-plugin/issues/244)
+
+## [2.36.1](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.36.0...v2.36.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* **agents:** update learnings-researcher model from haiku to inherit ([30852b7](https://github.com/EveryInc/compound-engineering-plugin/commit/30852b72937091b0a85c22b7c8c45d513ab49fd1)), closes [#249](https://github.com/EveryInc/compound-engineering-plugin/issues/249)
+
+# [2.36.0](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.35.0...v2.36.0) (2026-03-11)
+
+
+### Bug Fixes
+
+* **hooks:** wrap PreToolUse handlers in try-catch to prevent parallel tool call crashes ([598222e](https://github.com/EveryInc/compound-engineering-plugin/commit/598222e11cb2206a2e3347cb5dd38cacdc3830df)), closes [#85](https://github.com/EveryInc/compound-engineering-plugin/issues/85)
+* **install:** merge config instead of overwriting on opencode target ([1db7680](https://github.com/EveryInc/compound-engineering-plugin/commit/1db76800f91fefcc1bb9c1798ef273ddd0b65f5c)), closes [#125](https://github.com/EveryInc/compound-engineering-plugin/issues/125)
+* **review:** add serial mode to prevent context limit crashes ([d96671b](https://github.com/EveryInc/compound-engineering-plugin/commit/d96671b9e9ecbe417568b2ce7f7fa4d379c2bec2)), closes [#166](https://github.com/EveryInc/compound-engineering-plugin/issues/166)
+
+
+### Features
+
+* **compound:** add context budget precheck and compact-safe mode ([c4b1358](https://github.com/EveryInc/compound-engineering-plugin/commit/c4b13584312058cb8db3ad0f25674805bbb91b2d)), closes [#198](https://github.com/EveryInc/compound-engineering-plugin/issues/198)
+* **plan:** add daily sequence number to plan filenames ([e94ca04](https://github.com/EveryInc/compound-engineering-plugin/commit/e94ca0409671efcfa2d4a8fcb2d60b79a848fd85)), closes [#135](https://github.com/EveryInc/compound-engineering-plugin/issues/135)
+* **plugin:** release v2.39.0 with community contributions ([d2ab6c0](https://github.com/EveryInc/compound-engineering-plugin/commit/d2ab6c076882a4dacaa787c0a6f3c9d555d38af0))
+
+# [2.35.0](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.34.7...v2.35.0) (2026-03-10)
+
+
+### Bug Fixes
+
+* **test-browser:** detect dev server port from project config ([94aedd5](https://github.com/EveryInc/compound-engineering-plugin/commit/94aedd5a7b6da4ce48de994b5a137953c0fd21c3)), closes [#164](https://github.com/EveryInc/compound-engineering-plugin/issues/164)
+
+
+### Features
+
+* **compound:** add context budget precheck and compact-safe mode ([7266062](https://github.com/EveryInc/compound-engineering-plugin/commit/726606286873c4059261a8c5f1b75c20fe11ac77)), closes [#198](https://github.com/EveryInc/compound-engineering-plugin/issues/198)
+* **plan:** add daily sequence number to plan filenames ([4fc6ddc](https://github.com/EveryInc/compound-engineering-plugin/commit/4fc6ddc5db3e2b4b398c0ffa0c156e1177b35d05)), closes [#135](https://github.com/EveryInc/compound-engineering-plugin/issues/135)
+
+## [2.34.7](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.34.6...v2.34.7) (2026-03-10)
+
+
+### Bug Fixes
+
+* **test-browser:** detect dev server port from project config ([50cb89e](https://github.com/EveryInc/compound-engineering-plugin/commit/50cb89efde7cee7d6dcd42008e6060e1bec44fcc)), closes [#164](https://github.com/EveryInc/compound-engineering-plugin/issues/164)
+
+## [2.34.6](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.34.5...v2.34.6) (2026-03-10)
+
+
+### Bug Fixes
+
+* **mcp:** add API key auth support for Context7 server ([c649cfc](https://github.com/EveryInc/compound-engineering-plugin/commit/c649cfc17f895b58babf737dfdec2f6cc391e40a)), closes [#153](https://github.com/EveryInc/compound-engineering-plugin/issues/153)
+
+## [2.34.5](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.34.4...v2.34.5) (2026-03-10)
+
+
+### Bug Fixes
+
+* **lfg:** enforce plan phase with explicit step gating ([b07f43d](https://github.com/EveryInc/compound-engineering-plugin/commit/b07f43ddf59cd7f2fe54b2e0a00d2b5b508b7f11)), closes [#227](https://github.com/EveryInc/compound-engineering-plugin/issues/227)
+
 ## [2.34.4](https://github.com/EveryInc/compound-engineering-plugin/compare/v2.34.3...v2.34.4) (2026-03-04)
 
 

@@ -7,7 +7,7 @@ This is Juan Caicedo's private fork of [EveryInc/compound-engineering-plugin](ht
 This fork includes the following customizations:
 - Removed Rails/Ruby-specific components (agents and skills)
 - Removed Python-specific components (kieran-python-reviewer agent)
-- Streamlined to 25 agents, 24 commands, 12 skills
+- Streamlined to 27 agents, 2 commands, 45 skills
 
 ## Syncing with Upstream
 
