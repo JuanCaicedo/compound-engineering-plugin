@@ -25,6 +25,7 @@ Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized toke
 | `mode:autofix` | `mode:autofix` | Select autofix mode (see Mode Detection below) |
 | `mode:report-only` | `mode:report-only` | Select report-only mode |
 | `mode:headless` | `mode:headless` | Select headless mode for programmatic callers (see Mode Detection below) |
+| `tier:lean` | `tier:lean` | Reduced reviewer set for faster, lower-cost reviews (see Reviewer Tiers below) |
 | `base:<sha-or-ref>` | `base:abc1234` or `base:origin/main` | Skip scope detection — use this as the diff base directly |
 | `plan:<path>` | `plan:docs/plans/2026-03-25-001-feat-foo-plan.md` | Load this plan for requirements verification |
 
@@ -99,20 +100,41 @@ Routing rules:
 - **Only `safe_auto -> review-fixer` enters the in-skill fixer queue automatically.**
 - **`requires_verification: true` means a fix is not complete without targeted tests, a focused re-review, or operational validation.**
 
+## Reviewer Tiers
+
+The `tier:` argument controls how many reviewers are spawned. When omitted, the full tier is used.
+
+| | `tier:lean` | Full (default) |
+|---|---|---|
+| **Always-on personas** | correctness, testing, maintainability (3) | correctness, testing, maintainability, project-standards (4) |
+| **Cross-cutting conditional** | Same selection logic, capped at 2 most relevant | Unlimited |
+| **Stack-specific conditional** | Skipped | Selected per diff |
+| **CE conditional** | Skipped | Selected per diff |
+| **Typical total** | 3–5 agents | 4–13+ agents |
+
+**Lean conditional cap:** When `tier:lean` is active and more than 2 cross-cutting conditionals would qualify, select the 2 most relevant to the diff. Prefer reviewers whose domain has the highest signal in the changed code (e.g., a diff adding a public endpoint with user input should prioritize security over cli-readiness). State which conditionals were skipped and why in the team announcement.
+
+**Stage effects of `tier:lean`:**
+- Stage 3b (project standards path discovery): Skip entirely — project-standards persona is not spawned.
+- Stage 6 sections 7 (Schema Drift Check) and 8 (Deployment Notes): Omit — the agents that produce these are not spawned.
+
 ## Reviewers
 
-17 reviewer personas in layered conditionals, plus CE-specific agents. See the persona catalog included below for the full catalog.
+15 reviewer personas in layered conditionals. See the persona catalog included below for the full catalog.
 
-**Always-on (every review):**
+**Always-on (every review, all tiers):**
 
 | Agent | Focus |
 |-------|-------|
 | `compound-engineering:review:correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
 | `compound-engineering:review:testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
 | `compound-engineering:review:maintainability-reviewer` | Coupling, complexity, naming, dead code, abstraction debt |
+
+**Always-on (full tier only):**
+
+| Agent | Focus |
+|-------|-------|
 | `compound-engineering:review:project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
-| `compound-engineering:review:agent-native-reviewer` | Verify new features are agent-accessible |
-| `compound-engineering:research:learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
 
 **Cross-cutting conditional (selected per diff):**
 
@@ -146,7 +168,9 @@ Routing rules:
 
 ## Review Scope
 
-Every review spawns all 4 always-on personas plus the 2 CE always-on agents, then adds whichever cross-cutting and stack-specific conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 6 reviewers. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails = 10 reviewers.
+In full tier (default), every review spawns all 4 always-on personas, then adds whichever cross-cutting and stack-specific conditionals fit the diff. The model naturally right-sizes: a small config change triggers 0 conditionals = 4 reviewers. A Rails auth feature might trigger security + reliability + kieran-rails + dhh-rails = 8 reviewers.
+
+In `tier:lean`, the always-on set is 3 personas (correctness, testing, maintainability) = 3 reviewers. Cross-cutting conditionals still apply but are capped at 2. Stack-specific and CE conditional agents are skipped. A typical lean review runs 3–5 agents total.
 
 ## Protected Artifacts
 
@@ -337,17 +361,31 @@ If a plan is found, read its **Requirements Trace** (R1, R2, etc.) and **Impleme
 
 ### Stage 3: Select reviewers
 
-Read the diff and file list from Stage 1. The 4 always-on personas and 2 CE always-on agents are automatic. For each cross-cutting and stack-specific conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching.
+Read the diff and file list from Stage 1. Select the always-on set based on the active tier (see Reviewer Tiers above):
+
+- **Full tier (default):** 4 always-on personas (correctness, testing, maintainability, project-standards).
+- **`tier:lean`:** 3 always-on personas (correctness, testing, maintainability). Skip project-standards.
+
+For each cross-cutting conditional persona in the persona catalog included below, decide whether the diff warrants it. This is agent judgment, not keyword matching. **In `tier:lean`, cap cross-cutting conditionals at 2.** If more than 2 qualify, select the 2 most relevant to the diff content. State which were skipped and why in the team announcement.
 
 **File-type awareness for conditional selection:** Instruction-prose files (Markdown skill definitions, JSON schemas, config files) are product code but do not benefit from runtime-focused reviewers. The adversarial reviewer's techniques (race conditions, cascade failures, abuse cases) target executable code behavior. For diffs that only change instruction-prose files, skip adversarial unless the prose describes auth, payment, or data-mutation behavior. Count only executable code lines toward line-count thresholds.
 
 **`previous-comments` is PR-only.** Only select this persona when Stage 1 gathered PR metadata (PR number or URL was provided as an argument, or `gh pr view` returned metadata for the current branch). Skip it entirely for standalone branch reviews with no associated PR -- there are no prior comments to check.
 
-Stack-specific personas are additive. A Rails UI change may warrant `kieran-rails` plus `julik-frontend-races`; a TypeScript API diff may warrant `kieran-typescript` plus `api-contract` and `reliability`.
+**Stack-specific and CE conditional agents in `tier:lean`:** Skip entirely. Do not evaluate stack-specific personas or CE conditional agents (schema-drift-detector, deployment-verification-agent) when `tier:lean` is active.
 
-For CE conditional agents, check if the diff includes files matching `db/migrate/*.rb`, `db/schema.rb`, or data backfill scripts.
+**Full tier only:** Stack-specific personas are additive. A Rails UI change may warrant `kieran-rails` plus `julik-frontend-races`; a TypeScript API diff may warrant `kieran-typescript` plus `api-contract` and `reliability`. For CE conditional agents, check if the diff includes files matching `db/migrate/*.rb`, `db/schema.rb`, or data backfill scripts.
 
 Announce the team before spawning:
+
+```
+Review team (tier:lean):
+- correctness (always)
+- testing (always)
+- maintainability (always)
+- security -- new endpoint in routes.rb accepts user-provided redirect URL
+- [skipped: adversarial, reliability -- lean cap reached, security has highest signal]
+```
 
 ```
 Review team:
@@ -355,8 +393,6 @@ Review team:
 - testing (always)
 - maintainability (always)
 - project-standards (always)
-- agent-native-reviewer (always)
-- learnings-researcher (always)
 - security -- new endpoint in routes.rb accepts user-provided redirect URL
 - kieran-rails -- controller and Turbo flow changed in app/controllers and app/views
 - dhh-rails -- diff adds service objects around ordinary Rails CRUD
@@ -367,6 +403,8 @@ Review team:
 This is progress reporting, not a blocking confirmation.
 
 ### Stage 3b: Discover project standards paths
+
+**Skip this stage entirely when `tier:lean` is active** — project-standards is not in the lean always-on set.
 
 Before spawning sub-agents, find the file paths (not contents) of all relevant standards files for the `project-standards` persona. Use the native file-search/glob tool to locate:
 
@@ -383,7 +421,7 @@ Persona sub-agents do focused, scoped work and should use a fast mid-tier model 
 
 Use the platform's mid-tier model for all persona and CE sub-agents. In Claude Code, pass `model: "sonnet"` in the Agent tool call. On other platforms, use the equivalent mid-tier (e.g., `gpt-4o` in Codex). If the platform has no model override mechanism or the available model names are unknown, omit the model parameter and let agents inherit the default -- a working review on the parent model is better than a broken dispatch from an unrecognized model name.
 
-CE always-on agents (agent-native-reviewer, learnings-researcher) and CE conditional agents (schema-drift-detector, deployment-verification-agent) also use the mid-tier model since they perform scoped, focused work.
+CE conditional agents (schema-drift-detector, deployment-verification-agent in full tier) also use the mid-tier model since they perform scoped, focused work.
 
 The orchestrator (this skill) stays on the default model because it handles intent discovery, reviewer selection, finding merge/dedup, and synthesis -- tasks that benefit from stronger reasoning.
 
@@ -444,9 +482,7 @@ Each persona sub-agent writes full JSON (all schema fields) to `.context/compoun
 
 Detail-tier fields (`why_it_matters`, `evidence`) are in the artifact file only. `suggested_fix` is optional in both tiers -- included in compact returns when present so the orchestrator has fix context for auto-apply decisions. If the file write fails, the compact return still provides everything the merge needs.
 
-**CE always-on agents** (agent-native-reviewer, learnings-researcher) are dispatched as standard Agent calls in parallel with the persona agents. Give them the same review context bundle the personas receive: entry mode, any PR metadata gathered in Stage 1, intent summary, review base branch name when known, `BASE:` marker, file list, diff, and `UNTRACKED:` scope notes. Do not invoke them with a generic "review this" prompt. Their output is unstructured and synthesized separately in Stage 6.
-
-**CE conditional agents** (schema-drift-detector, deployment-verification-agent) are also dispatched as standard Agent calls when applicable. Pass the same review context bundle plus the applicability reason (for example, which migration files triggered the agent). For schema-drift-detector specifically, pass the resolved review base branch explicitly so it never assumes `main`. Their output is unstructured and must be preserved for Stage 6 synthesis just like the CE always-on agents.
+**CE conditional agents** (schema-drift-detector, deployment-verification-agent) are dispatched as standard Agent calls when applicable. **Skip in `tier:lean`.** In full tier, pass the same review context bundle the personas receive: entry mode, any PR metadata gathered in Stage 1, intent summary, review base branch name when known, `BASE:` marker, file list, diff, and `UNTRACKED:` scope notes, plus the applicability reason (for example, which migration files triggered the agent). Do not invoke them with a generic "review this" prompt. For schema-drift-detector specifically, pass the resolved review base branch explicitly so it never assumes `main`. Their output is unstructured and is synthesized separately in Stage 6.
 
 ### Stage 5: Merge findings
 
@@ -475,7 +511,7 @@ Convert multiple reviewer compact JSON returns into one deduplicated, confidence
    - report-only queue: `advisory` findings plus anything owned by `human` or `release`
 9. **Sort.** Order by severity (P0 first) -> confidence (descending) -> file path -> line number.
 10. **Collect coverage data.** Union residual_risks and testing_gaps across reviewers.
-11. **Preserve CE agent artifacts.** Keep the learnings, agent-native, schema-drift, and deployment-verification outputs alongside the merged finding set. Do not drop unstructured agent output just because it does not match the persona JSON schema.
+11. **Preserve CE agent artifacts.** Keep the schema-drift and deployment-verification outputs alongside the merged finding set. Do not drop unstructured agent output just because it does not match the persona JSON schema.
 
 ### Stage 6: Synthesize and present
 
@@ -490,12 +526,10 @@ Assemble the final report using **pipe-delimited markdown tables for findings** 
 4. **Applied Fixes.** Include only if a fix phase ran in this invocation.
 5. **Residual Actionable Work.** Include when unresolved actionable findings were handed off or should be handed off.
 6. **Pre-existing.** Separate section, does not count toward verdict.
-7. **Learnings & Past Solutions.** Surface learnings-researcher results: if past solutions are relevant, flag them as "Known Pattern" with links to docs/solutions/ files.
-8. **Agent-Native Gaps.** Surface agent-native-reviewer results. Omit section if no gaps found.
-9. **Schema Drift Check.** If schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly.
-10. **Deployment Notes.** If deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage.
-11. **Coverage.** Suppressed count, residual risks, testing gaps, failed/timed-out reviewers, and any intent uncertainty carried by non-interactive modes.
-12. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
+7. **Schema Drift Check.** If schema-drift-detector ran, summarize whether drift was found. If drift exists, list the unrelated schema objects and the required cleanup command. If clean, say so briefly. **Omit in `tier:lean`** — schema-drift-detector is not spawned.
+8. **Deployment Notes.** If deployment-verification-agent ran, surface the key Go/No-Go items: blocking pre-deploy checks, the most important verification queries, rollback caveats, and monitoring focus areas. Keep the checklist actionable rather than dropping it into Coverage. **Omit in `tier:lean`** — deployment-verification-agent is not spawned.
+9. **Coverage.** Suppressed count, residual risks, testing gaps, failed/timed-out reviewers, any intent uncertainty carried by non-interactive modes, and active tier when not full (e.g., "Tier: lean — project-standards, stack-specific, and CE conditional reviewers skipped").
+10. **Verdict.** Ready to merge / Ready with fixes / Not ready. Fix order if applicable. When an `explicit` plan has unaddressed requirements, the verdict must reflect it — a PR that's code-clean but missing planned requirements is "Not ready" unless the omission is intentional. When an `inferred` plan has unaddressed requirements, note it in the verdict reasoning but do not block on it alone.
 
 Do not include time estimates.
 
@@ -541,12 +575,6 @@ Pre-existing issues:
 
 Residual risks:
 - <risk>
-
-Learnings & Past Solutions:
-- <learning>
-
-Agent-Native Gaps:
-- <gap description>
 
 Schema Drift Check:
 - <drift status>

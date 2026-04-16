@@ -1,12 +1,10 @@
 # Persona Catalog
 
-17 reviewer personas organized into always-on, cross-cutting conditional, and stack-specific conditional layers, plus CE-specific agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
+15 reviewer personas organized into always-on, cross-cutting conditional, and stack-specific conditional layers, plus CE-specific conditional agents. The orchestrator uses this catalog to select which reviewers to spawn for each review.
 
-## Always-on (4 personas + 2 CE agents)
+## Always-on (4 personas)
 
-Spawned on every review regardless of diff content.
-
-**Persona agents (structured JSON output):**
+Spawned on every review regardless of diff content. All produce structured JSON output.
 
 | Persona | Agent | Focus |
 |---------|-------|-------|
@@ -14,13 +12,6 @@ Spawned on every review regardless of diff content.
 | `testing` | `compound-engineering:review:testing-reviewer` | Coverage gaps, weak assertions, brittle tests, missing edge case tests |
 | `maintainability` | `compound-engineering:review:maintainability-reviewer` | Coupling, complexity, naming, dead code, premature abstraction |
 | `project-standards` | `compound-engineering:review:project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, cross-platform portability, tool selection |
-
-**CE agents (unstructured output, synthesized separately):**
-
-| Agent | Focus |
-|-------|-------|
-| `compound-engineering:review:agent-native-reviewer` | Verify new features are agent-accessible |
-| `compound-engineering:research:learnings-researcher` | Search docs/solutions/ for past issues related to this PR's modules and patterns |
 
 ## Conditional (8 personas)
 
@@ -60,8 +51,20 @@ These CE-native agents provide specialized analysis beyond what the persona agen
 
 ## Selection rules
 
-1. **Always spawn all 4 always-on personas** plus the 2 CE always-on agents.
+Selection depends on the active tier (full by default, or `tier:lean` when requested).
+
+### Full tier (default)
+
+1. **Always spawn all 4 always-on personas.**
 2. **For each cross-cutting conditional persona**, the orchestrator reads the diff and decides whether the persona's domain is relevant. This is a judgment call, not a keyword match.
 3. **For each stack-specific conditional persona**, use file types and changed patterns as a starting point, then decide whether the diff actually introduces meaningful work for that reviewer. Do not spawn language-specific reviewers just because one config or generated file happens to match the extension.
 4. **For CE conditional agents**, spawn when the diff includes migration files (`db/migrate/*.rb`, `db/schema.rb`) or data backfill scripts.
 5. **Announce the team** before spawning with a one-line justification per conditional reviewer selected.
+
+### Lean tier (`tier:lean`)
+
+1. **Always spawn 3 always-on personas** (correctness, testing, maintainability). Skip project-standards.
+2. **For cross-cutting conditional personas**, apply the same judgment as full tier but **cap at 2**. If more than 2 qualify, select the 2 most relevant to the diff. State which were skipped and why.
+3. **Skip all stack-specific conditional personas.**
+4. **Skip all CE conditional agents** (schema-drift-detector, deployment-verification-agent).
+5. **Announce the team** before spawning, noting the tier and any skipped conditionals.
