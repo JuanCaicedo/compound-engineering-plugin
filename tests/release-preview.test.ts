@@ -1,3 +1,6 @@
+import { mkdtemp, mkdir, writeFile } from "fs/promises"
+import os from "os"
+import path from "path"
 import { describe, expect, test } from "bun:test"
 import { buildReleasePreview, bumpVersion, loadCurrentVersions } from "../src/release/components"
 
@@ -5,8 +8,8 @@ describe("release preview", () => {
   test("uses changed files to determine affected components and next versions", async () => {
     const versions = await loadCurrentVersions()
     const preview = await buildReleasePreview({
-      title: "fix: adjust ce:plan-beta wording",
-      files: ["plugins/compound-engineering/skills/ce-plan-beta/SKILL.md"],
+      title: "fix: adjust ce-plan wording",
+      files: ["skills/ce-plan/SKILL.md"],
     })
 
     expect(preview.components).toHaveLength(1)
@@ -18,18 +21,18 @@ describe("release preview", () => {
   test("supports per-component overrides without affecting unrelated components", async () => {
     const versions = await loadCurrentVersions()
     const preview = await buildReleasePreview({
-      title: "fix: update coding tutor prompts",
-      files: ["plugins/coding-tutor/README.md"],
+      title: "fix: refine compound-engineering prompts",
+      files: ["README.md"],
       overrides: {
-        "coding-tutor": "minor",
+        "compound-engineering": "minor",
       },
     })
 
     expect(preview.components).toHaveLength(1)
-    expect(preview.components[0].component).toBe("coding-tutor")
+    expect(preview.components[0].component).toBe("compound-engineering")
     expect(preview.components[0].inferredBump).toBe("patch")
     expect(preview.components[0].effectiveBump).toBe("minor")
-    expect(preview.components[0].nextVersion).toBe(bumpVersion(versions["coding-tutor"], "minor"))
+    expect(preview.components[0].nextVersion).toBe(bumpVersion(versions["compound-engineering"], "minor"))
   })
 
   test("docs-only changes remain non-releasable by default", async () => {
@@ -39,5 +42,53 @@ describe("release preview", () => {
     })
 
     expect(preview.components).toHaveLength(0)
+  })
+
+  test("rejects Gemini extension version drift from the root plugin version", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "release-preview-"))
+    await mkdir(path.join(root, ".claude-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".cursor-plugin"), { recursive: true })
+
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(path.join(root, ".claude-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await mkdir(path.join(root, ".kimi-plugin"), { recursive: true })
+    await writeFile(path.join(root, ".kimi-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await mkdir(path.join(root, ".agy"), { recursive: true })
+    await writeFile(path.join(root, ".agy", "plugin.json"), JSON.stringify({ version: "3.13.0" }))
+    await writeFile(
+      path.join(root, ".claude-plugin", "marketplace.json"),
+      JSON.stringify({ metadata: { version: "3.13.1" } }),
+    )
+    await writeFile(
+      path.join(root, ".cursor-plugin", "marketplace.json"),
+      JSON.stringify({ metadata: { version: "3.13.1" } }),
+    )
+
+    await expect(loadCurrentVersions(root)).rejects.toThrow(".agy/plugin.json version 3.13.0")
+    await Bun.$`rm -rf ${root}`.quiet()
+  })
+
+  test("rejects Kimi plugin version drift from the root plugin version", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "release-preview-"))
+    await mkdir(path.join(root, ".claude-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".cursor-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".kimi-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".agy"), { recursive: true })
+
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(path.join(root, ".claude-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(path.join(root, ".kimi-plugin", "plugin.json"), JSON.stringify({ version: "3.13.0" }))
+    await writeFile(path.join(root, ".agy", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(
+      path.join(root, ".claude-plugin", "marketplace.json"),
+      JSON.stringify({ metadata: { version: "3.13.1" } }),
+    )
+    await writeFile(
+      path.join(root, ".cursor-plugin", "marketplace.json"),
+      JSON.stringify({ metadata: { version: "3.13.1" } }),
+    )
+
+    await expect(loadCurrentVersions(root)).rejects.toThrow(".kimi-plugin/plugin.json version 3.13.0")
+    await Bun.$`rm -rf ${root}`.quiet()
   })
 })

@@ -41,7 +41,7 @@ export function convertClaudeToCopilot(
     console.warn("Warning: Copilot does not support hooks. Hooks were skipped during conversion.")
   }
 
-  return { agents, generatedSkills, skillDirs, mcpConfig }
+  return { pluginName: plugin.manifest.name, agents, generatedSkills, skillDirs, mcpConfig }
 }
 
 function convertAgent(agent: ClaudeAgent, usedNames: Set<string>): CopilotAgent {
@@ -127,7 +127,7 @@ export function transformContentForCopilot(body: string): string {
   // The lookbehind ensures we only match at word boundaries or after common delimiters,
   // avoiding corruption of URLs, code identifiers, or unrelated namespace:value patterns.
   // Note: / is intentionally excluded — slash commands are already handled in step 2.
-  // Captures colons in the name segment so multi-colon refs like ce:work:beta → ce-work-beta.
+  // Captures colons in the name segment so multi-colon refs like ce:foo:bar → ce-foo-bar.
   result = result.replace(/(?<=^|[\s,.()`'"])ce:([a-z*][a-z0-9_*:-]*)/gim, (_, name: string) => `ce-${name.replace(/:/g, "-")}`)
 
   // 4. Rewrite .claude/ paths to .github/ and ~/.claude/ to ~/.copilot/

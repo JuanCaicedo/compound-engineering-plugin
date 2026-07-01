@@ -7,7 +7,16 @@ This is Juan Caicedo's private fork of [EveryInc/compound-engineering-plugin](ht
 This fork includes the following customizations:
 - Removed Rails/Ruby-specific components (agents and skills)
 - Removed Python-specific components (kieran-python-reviewer agent)
-- Streamlined to 25 agents, 24 commands, 12 skills
+- Fork-specific skills added (top-level `skills/`, all `ce-` prefixed):
+  - `ce-vanna-patterns-review`, `ce-generate-review-guide` — GitLab/Vanna workflow helpers
+  - `ce-agent-review` — single-persona focused review (converted from the old `/agent_review` command)
+  - `ce-resolve-mr-feedback` — GitLab MR review-thread resolution via `glab` (the GitLab counterpart to upstream's `ce-resolve-pr-feedback`; converted from `/resolve_mr_parallel`)
+  - `ce-quick-review` — lightweight 3-agent review
+  - Fork reviewer personas under `skills/ce-code-review/references/personas/`: `brandon-aldrich-reviewer`, `jeremy-gillick-reviewer`, `quality-reviewer`
+- `ce-code-review`: `agent-native-reviewer` and `learnings-researcher` moved from the always-on set to CE conditionals; added a `tier:lean` argument (inverse of `depth:full`)
+- `ce-plan` / `ce-brainstorm`: plan filenames use `ft-<ticket>` (e.g. `2026-01-21-ft-123-feat-...`) instead of the upstream `NNN` daily sequence number
+
+> **Layout note (post-3.15.0 sync):** Upstream moved the plugin to a root-native layout. Skills now live in top-level `skills/`; the plugin no longer ships standalone `agents/` or `commands/` (reviewer/research agents are frontmatter-free prompt assets under `skills/<skill>/references/{personas,agents}/`). The old `plugins/compound-engineering/` tree no longer exists. Current counts: 0 standalone agents, 31 skills, 0 MCP servers.
 
 ## Syncing with Upstream
 
@@ -80,19 +89,13 @@ The CHANGELOG will always conflict because both upstream and your fork add entri
 
 ### Component Count Conflicts
 
-If upstream adds new agents/commands/skills, you'll need to update counts:
+Counts are release-owned now — do not hand-edit them. `bun run release:validate` recomputes counts from the repo and checks that release metadata is in sync:
 
 ```bash
-# Recount your actual components
-ls plugins/compound-engineering/agents/*/*.md | wc -l
-ls -d plugins/compound-engineering/skills/*/ | wc -l
-ls plugins/compound-engineering/commands/*.md | wc -l
-
-# Update these files with correct counts:
-# - plugins/compound-engineering/.claude-plugin/plugin.json
-# - .claude-plugin/marketplace.json
-# - plugins/compound-engineering/README.md
+bun run release:validate
 ```
+
+Note: skills live in top-level `skills/`; the plugin ships no standalone `agents/` or `commands/`. Reviewer/research personas are prompt assets under `skills/<skill>/references/{personas,agents}/` and are not counted as agents.
 
 ### Deleted Component References
 
@@ -100,7 +103,7 @@ If upstream references components you've deleted (Rails/Python reviewers), remov
 
 ```bash
 # Search for deleted component references
-grep -r "kieran-rails-reviewer\|dhh-rails-reviewer\|kieran-python-reviewer" plugins/compound-engineering/
+grep -rn "kieran-rails-reviewer\|dhh-rails-reviewer\|kieran-python-reviewer" skills/ .claude-plugin/
 
 # Remove any found references manually
 ```
@@ -117,18 +120,21 @@ git rm path/to/deleted/component.md
 ## Testing After Sync
 
 ```bash
-# 1. Validate JSON files
-cat .claude-plugin/marketplace.json | jq .
-cat plugins/compound-engineering/.claude-plugin/plugin.json | jq .
+# 1. Install deps and validate release metadata (counts, descriptions)
+bun install
+bun run release:validate
 
-# 2. Verify counts are accurate
-ls plugins/compound-engineering/agents/*/*.md | wc -l
-ls -d plugins/compound-engineering/skills/*/ | wc -l
+# 2. Validate marketplace/plugin JSON
+jq . .claude-plugin/marketplace.json
+jq . .claude-plugin/plugin.json
 
-# 3. Check for broken references
-grep -r "kieran-rails-reviewer\|dhh-rails-reviewer\|kieran-python-reviewer\|dhh-rails-style\|andrew-kane-gem-writer\|dspy-ruby" plugins/compound-engineering/
+# 3. Run the full test suite (conversion, writers, skill contracts)
+bun test
 
-# 4. Test plugin installation
+# 4. Check for broken references to removed components
+grep -rn "kieran-rails-reviewer\|dhh-rails-reviewer\|kieran-python-reviewer\|dhh-rails-style\|andrew-kane-gem-writer\|dspy-ruby" skills/
+
+# 5. Test plugin installation from the fork
 claude /plugin marketplace add /Users/juan.caicedo/code/personal/compound-engineering-plugin
 claude /plugin install compound-engineering
 ```

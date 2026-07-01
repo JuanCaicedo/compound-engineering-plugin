@@ -7,19 +7,13 @@
   },
   "metadata": {
     "description": "Cursor plugin marketplace for Every Inc plugins",
-    "version": "1.0.1",
-    "pluginRoot": "plugins"
+    "version": "1.0.2"
   },
   "plugins": [
     {
       "name": "compound-engineering",
-      "source": "compound-engineering",
-      "description": "AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last."
-    },
-    {
-      "name": "coding-tutor",
-      "source": "coding-tutor",
-      "description": "Personalized coding tutorials with spaced repetition quizzes using your real codebase."
+      "source": ".",
+      "description": "Brainstorm, plan, debug, review, and compound learnings with AI agents"
     }
   ]
 }

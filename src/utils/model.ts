@@ -34,7 +34,7 @@ export function resolveClaudeFamilyAlias(model: string): string {
  * "claude-sonnet-4-6" -> "anthropic/claude-sonnet-4-6"
  * "gpt-5.4"           -> "openai/gpt-5.4"
  * "gemini-2.0"        -> "google/gemini-2.0"
- * "minimax-m2.7"      -> "minimax/minimax-m2.7"
+ * "minimax-m3"        -> "minimax/minimax-m3"
  * "anthropic/foo"     -> "anthropic/foo" (unchanged)
  */
 export function addProviderPrefix(model: string): string {
@@ -48,8 +48,8 @@ export function addProviderPrefix(model: string): string {
 }
 
 /**
- * Normalize a model for targets that use provider-prefixed IDs
- * (OpenCode, OpenClaw). Resolves bare aliases and adds provider prefix.
+ * Normalize a model for targets that use provider-prefixed IDs.
+ * Resolves bare aliases and adds provider prefix.
  *
  * "sonnet"                  -> "anthropic/claude-sonnet-4-6"
  * "claude-sonnet-4-20250514" -> "anthropic/claude-sonnet-4-20250514"
@@ -66,4 +66,3 @@ export function normalizeModelWithProvider(model: string): string {
   }
   return addProviderPrefix(resolved)
 }
-

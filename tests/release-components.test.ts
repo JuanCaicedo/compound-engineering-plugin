@@ -11,26 +11,24 @@ import {
 describe("release component detection", () => {
   test("maps plugin-only changes to the matching plugin component", () => {
     const components = detectComponentsFromFiles([
-      "plugins/compound-engineering/skills/ce-plan/SKILL.md",
+      "skills/ce-plan/SKILL.md",
     ])
 
     expect(components.get("compound-engineering")).toEqual([
-      "plugins/compound-engineering/skills/ce-plan/SKILL.md",
+      "skills/ce-plan/SKILL.md",
     ])
-    expect(components.get("cli")).toEqual([])
-    expect(components.get("coding-tutor")).toEqual([])
     expect(components.get("marketplace")).toEqual([])
   })
 
-  test("maps cli and plugin changes independently", () => {
+  test("maps code and plugin manifest changes to the root plugin component", () => {
     const components = detectComponentsFromFiles([
       "src/commands/install.ts",
-      "plugins/coding-tutor/.claude-plugin/plugin.json",
+      ".claude-plugin/plugin.json",
     ])
 
-    expect(components.get("cli")).toEqual(["src/commands/install.ts"])
-    expect(components.get("coding-tutor")).toEqual([
-      "plugins/coding-tutor/.claude-plugin/plugin.json",
+    expect(components.get("compound-engineering")).toEqual([
+      "src/commands/install.ts",
+      ".claude-plugin/plugin.json",
     ])
   })
 
@@ -39,7 +37,6 @@ describe("release component detection", () => {
     expect(components.get("marketplace")).toEqual([".claude-plugin/marketplace.json"])
     expect(components.get("cursor-marketplace")).toEqual([])
     expect(components.get("compound-engineering")).toEqual([])
-    expect(components.get("coding-tutor")).toEqual([])
   })
 
   test("maps cursor marketplace metadata to cursor-marketplace component", () => {
@@ -47,21 +44,31 @@ describe("release component detection", () => {
     expect(components.get("cursor-marketplace")).toEqual([".cursor-plugin/marketplace.json"])
     expect(components.get("marketplace")).toEqual([])
     expect(components.get("compound-engineering")).toEqual([])
-    expect(components.get("coding-tutor")).toEqual([])
+  })
+
+  test("maps Kimi plugin manifest to root plugin component but leaves marketplace static", () => {
+    const components = detectComponentsFromFiles([
+      ".kimi-plugin/plugin.json",
+      ".kimi-plugin/marketplace.json",
+    ])
+
+    expect(components.get("compound-engineering")).toEqual([".kimi-plugin/plugin.json"])
+    expect(components.get("marketplace")).toEqual([])
+    expect(components.get("cursor-marketplace")).toEqual([])
   })
 })
 
 describe("release intent parsing", () => {
   test("parses conventional titles with optional scope and breaking marker", () => {
-    const parsed = parseReleaseIntent("feat(coding-tutor)!: add tutor reset flow")
+    const parsed = parseReleaseIntent("feat(compound-engineering)!: add review reset flow")
     expect(parsed.type).toBe("feat")
-    expect(parsed.scope).toBe("coding-tutor")
+    expect(parsed.scope).toBe("compound-engineering")
     expect(parsed.breaking).toBe(true)
-    expect(parsed.description).toBe("add tutor reset flow")
+    expect(parsed.description).toBe("add review reset flow")
   })
 
   test("supports conventional titles without scope", () => {
-    const parsed = parseReleaseIntent("fix: adjust ce:plan-beta wording")
+    const parsed = parseReleaseIntent("fix: adjust ce-plan wording")
     expect(parsed.type).toBe("fix")
     expect(parsed.scope).toBeNull()
     expect(parsed.breaking).toBe(false)
@@ -70,6 +77,7 @@ describe("release intent parsing", () => {
   test("infers bump levels from parsed intent", () => {
     expect(inferBumpFromIntent(parseReleaseIntent("feat: add release preview"))).toBe("minor")
     expect(inferBumpFromIntent(parseReleaseIntent("fix: correct preview output"))).toBe("patch")
+    expect(inferBumpFromIntent(parseReleaseIntent("refactor: reshape plugin layout"))).toBeNull()
     expect(inferBumpFromIntent(parseReleaseIntent("docs: update requirements"))).toBeNull()
     expect(inferBumpFromIntent(parseReleaseIntent("refactor!: break compatibility"))).toBe("major")
   })
@@ -103,9 +111,9 @@ describe("scope mismatch warnings", () => {
 
   test("warns when explicit scope contradicts detected files", () => {
     const warnings = resolveComponentWarnings(
-      parseReleaseIntent("fix(cli): update coding tutor text"),
-      ["coding-tutor"],
+      parseReleaseIntent("fix(marketplace): update compound-engineering text"),
+      ["compound-engineering"],
     )
-    expect(warnings[0]).toContain('Optional scope "cli" does not match')
+    expect(warnings[0]).toContain('Optional scope "marketplace" does not match')
   })
 })
