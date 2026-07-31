@@ -1,184 +1,116 @@
 # Fork Management
 
-This is Juan Caicedo's private fork of [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
+This is Juan Caicedo's fork of [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin).
 
-## Customizations
+## What This Fork Adds
 
-This fork includes the following customizations:
-- Removed Rails/Ruby-specific components (agents and skills)
-- Removed Python-specific components (kieran-python-reviewer agent)
-- Streamlined to 25 agents, 24 commands, 12 skills
+The fork exists to carry **GitLab** and **Vanna**-specific skills that upstream does not want, since upstream is GitHub-only by design.
 
-## Syncing with Upstream
+| Skill | Purpose |
+|-------|---------|
+| `ce-resolve-mr-feedback` | GitLab counterpart to upstream's `ce-resolve-pr-feedback`. Speaks GitLab discussions via `glab`. |
+| `ce-generate-review-guide` | Produces a reviewer's guide from a GitLab MR URL. |
+| `ce-vanna-patterns-review` | Reviews a branch against the patterns documented in the Vanna docs repository. |
 
-### Setup (already done)
+One upstream skill is modified:
+
+- **`ce-plan`** — plan filenames use a ticket identifier (`YYYY-MM-DD-ft-<ticket>-<type>-<name>-plan.md`) instead of upstream's daily sequence number (`-NNN-`).
+
+Everything else tracks upstream unchanged.
+
+## What This Fork No Longer Does
+
+Earlier versions of this fork removed Rails, Ruby, and Python components (`dhh-rails-reviewer`, `kieran-rails-reviewer`, `kieran-python-reviewer`, `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`). **Upstream has since removed all of them itself**, so those deletions are no longer fork customizations and require no maintenance.
+
+The fork also previously carried its own reviewer personas (`brandon-aldrich-reviewer`, `jeremy-gillick-reviewer`, a combined `quality-reviewer`) and an `agent_review` command. These were dropped during the July 2026 sync — upstream's persona set and `ce-code-review` dispatch supersede them.
+
+## Upstream Layout Change (July 2026)
+
+Upstream moved the plugin from `plugins/compound-engineering/**` to the **repository root**. This is the single most important thing to know when reading old fork history:
+
+| Before | After |
+|--------|-------|
+| `plugins/compound-engineering/skills/<name>/` | `skills/<name>/` |
+| `plugins/compound-engineering/agents/<category>/<name>.md` | `skills/<skill>/references/agents/<name>.md` |
+| `plugins/compound-engineering/commands/<name>.md` | *(removed — commands no longer exist)* |
+| `plugins/compound-engineering/.claude-plugin/plugin.json` | `plugin.json` and `.claude-plugin/plugin.json` |
+
+Consequences for fork maintenance:
+
+- **No standalone agents.** Specialist personas live inside the skill that dispatches them, as frontmatter-free prompt assets under `references/agents/` or `references/personas/`. See AGENTS.md "Specialist Prompt Assets in Skills".
+- **No commands.** Upstream removed the top-level command surface ("agentless plugin surface reduction"). Anything that was a command is now a skill.
+- **Root `CLAUDE.md` is a symlink to `AGENTS.md`.** Do not replace it with a regular file — `claude plugin validate --strict` fails when the plugin root has a real `CLAUDE.md`.
+- **The `coding-tutor` plugin is gone.** Upstream deprecated and removed it; the fork never customized it.
+
+## Conventions Fork Skills Must Follow
+
+Upstream enforces these with tests. A new fork skill that ignores them will fail `bun run test`.
+
+- **`ce-` name prefix.** Skill directory and frontmatter `name` must start with `ce-` (`tests/skill-agent-ce-prefix.test.ts`). Upstream keeps an exemption allowlist in that test — **do not add fork skills to it**, because editing an upstream-owned test file creates a conflict on every future sync. Prefix instead.
+- **Self-contained references.** A skill may only reference files inside its own directory. No `../other-skill/...`, no absolute paths into the plugin. Duplicate a shared file rather than reaching for it.
+- **No `!`cmd`` pre-resolution** in SKILL.md. Gather context at runtime as single argv-style commands whose exit status is read as control flow.
+- **Prompt assets carry no YAML frontmatter.** Model and tool policy belong in the calling SKILL.md.
+- **LF line endings** on bundled scripts (`tests/bundled-script-line-endings.test.ts`).
+
+Fork skills that read a docs repository outside the current project (`ce-generate-review-guide`, `ce-vanna-patterns-review`) resolve it as `$VANNA_DOCS_ROOT` first, then `$HOME/code/vanna/docs`, and fail loudly rather than silently reviewing against nothing.
+
+## Syncing With Upstream
 
 ```bash
-# Add upstream remote (already configured)
-git remote add upstream https://github.com/EveryInc/compound-engineering-plugin.git
-```
-
-### Regular Sync Workflow
-
-```bash
-# 1. Fetch latest changes from upstream
+# 1. Fetch and see what's new
 git fetch upstream
-
-# 2. Check what's changed
 git log HEAD..upstream/main --oneline
 
-# 3. Create a sync branch
+# 2. Sync on a branch
 git checkout -b sync-upstream-$(date +%Y%m%d)
-
-# 4. Merge upstream changes
 git merge upstream/main
 
-# 5. Resolve conflicts (see below)
-# ... fix conflicts ...
+# 3. Resolve conflicts (see below), then validate
+bun install
+bun run test
+bun run release:validate
 
-# 6. Test the changes
-git status
-# Verify plugin still works
-
-# 7. Merge to main
+# 4. Land it
 git checkout main
 git merge sync-upstream-$(date +%Y%m%d)
 git push origin main
 ```
 
-## Handling Merge Conflicts
+### Conflict Resolution
 
-### CHANGELOG.md Conflicts (Common)
+Take upstream's side by default. The fork's surface is small and deliberate; anything outside it should track upstream exactly.
 
-The CHANGELOG will always conflict because both upstream and your fork add entries at the top.
+| Conflict | Resolution |
+|----------|-----------|
+| `.claude-plugin/marketplace.json` | Keep fork `name`/`owner`/`homepage` and the fork description. Take upstream's `metadata.version` and plugin `source` — those are release-owned. |
+| `README.md` | Take upstream's content, then re-point install paths to `JuanCaicedo/...` and keep the fork notice near the top. |
+| `AGENTS.md` / `CLAUDE.md` | Take upstream. `CLAUDE.md` must stay a symlink to `AGENTS.md`. |
+| `skills/ce-plan/SKILL.md` | Take upstream, then re-apply the `ft-<ticket>` naming (two spots: Phase 3.1 file naming, and the save-path block). |
+| A fork skill | Fork-owned; keep the fork's version. |
+| Anything else | Take upstream. |
 
-**Resolution strategy:**
-1. Keep BOTH changelog entries
-2. Order them by version number (higher versions first)
-3. Preserve your custom entries (2.29.0, 2.30.0)
-4. Add upstream entries below
+### Versions
 
-```markdown
-# Changelog
+Do not hand-bump versions in `plugin.json` or `marketplace.json` — upstream's release automation owns them, and hand edits cause version drift. Let the merge bring whatever upstream set.
 
-...
-
-## [2.30.0] - 2026-02-03 (Fork)
-### Removed
-- Python-specific components
-
-## [2.29.0] - 2026-02-03 (Fork)
-### Removed
-- Rails/Ruby-specific components
-
-## [2.28.0] - 2026-01-21 (Upstream)
-### Added
-- New features from upstream
-```
-
-**Tip:** Mark your fork-specific entries with `(Fork)` to distinguish them.
-
-### Component Count Conflicts
-
-If upstream adds new agents/commands/skills, you'll need to update counts:
+### After Syncing
 
 ```bash
-# Recount your actual components
-ls plugins/compound-engineering/agents/*/*.md | wc -l
-ls -d plugins/compound-engineering/skills/*/ | wc -l
-ls plugins/compound-engineering/commands/*.md | wc -l
-
-# Update these files with correct counts:
-# - plugins/compound-engineering/.claude-plugin/plugin.json
-# - .claude-plugin/marketplace.json
-# - plugins/compound-engineering/README.md
+bun run test                 # skill-convention and contract guards
+bun run release:validate     # plugin/marketplace consistency
+jq . .claude-plugin/marketplace.json
+jq . .claude-plugin/plugin.json
 ```
 
-### Deleted Component References
-
-If upstream references components you've deleted (Rails/Python reviewers), remove those references during merge:
+Then confirm the fork surface survived:
 
 ```bash
-# Search for deleted component references
-grep -r "kieran-rails-reviewer\|dhh-rails-reviewer\|kieran-python-reviewer" plugins/compound-engineering/
-
-# Remove any found references manually
+ls skills/ | grep -E 'ce-(resolve-mr-feedback|generate-review-guide|vanna-patterns-review)'
+grep -c 'ft-<ticket>' skills/ce-plan/SKILL.md   # expect 2 or more
 ```
-
-### File Deletion Conflicts
-
-If upstream modifies a file you've deleted, Git will show a conflict. Choose to keep the deletion:
-
-```bash
-# For deleted Rails/Ruby/Python components
-git rm path/to/deleted/component.md
-```
-
-## Testing After Sync
-
-```bash
-# 1. Validate JSON files
-cat .claude-plugin/marketplace.json | jq .
-cat plugins/compound-engineering/.claude-plugin/plugin.json | jq .
-
-# 2. Verify counts are accurate
-ls plugins/compound-engineering/agents/*/*.md | wc -l
-ls -d plugins/compound-engineering/skills/*/ | wc -l
-
-# 3. Check for broken references
-grep -r "kieran-rails-reviewer\|dhh-rails-reviewer\|kieran-python-reviewer\|dhh-rails-style\|andrew-kane-gem-writer\|dspy-ruby" plugins/compound-engineering/
-
-# 4. Test plugin installation
-claude /plugin marketplace add /Users/juan.caicedo/code/personal/compound-engineering-plugin
-claude /plugin install compound-engineering
-```
-
-## Upstream vs Fork Versions
-
-**Upstream versions:** Follow the original project's semver
-**Fork versions:** Extend with custom changes
-
-| Version | Source | Description |
-|---------|--------|-------------|
-| 2.28.0 | Upstream | Last synced upstream version |
-| 2.29.0 | Fork | Removed Rails/Ruby components |
-| 2.30.0 | Fork | Removed Python components |
-| 2.31.0+ | Mixed | Future upstream syncs + fork changes |
-
-## Merge Conflict Resolution Checklist
-
-When merging upstream changes:
-
-- [ ] Fetch upstream: `git fetch upstream`
-- [ ] Create sync branch
-- [ ] Merge upstream/main
-- [ ] Resolve CHANGELOG conflicts (keep both, mark fork entries)
-- [ ] Update component counts in plugin.json, marketplace.json, README.md
-- [ ] Remove references to deleted components
-- [ ] Validate JSON files with `jq`
-- [ ] Recount actual components
-- [ ] Test plugin installation
-- [ ] Commit with clear message: "Sync with upstream vX.Y.Z"
-- [ ] Push to origin
-
-## Preserving Fork Customizations
-
-To ensure your customizations survive merges:
-
-1. **Document deletions** - This FORK.md file lists removed components
-2. **Use .gitattributes** - Mark files with merge strategies (optional)
-3. **Review carefully** - Always review merge conflicts before committing
-4. **Test thoroughly** - Verify counts and references after each sync
-
-## When to Sync
-
-- **Monthly**: Check for new features and bug fixes
-- **Before major work**: Start with latest upstream code
-- **After upstream releases**: Stay current with stable versions
-- **Security updates**: Sync immediately for security patches
 
 ## Contact
 
 - **Fork maintainer**: Juan Caicedo (@JuanCaicedo)
 - **Upstream project**: [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin)
-- **Upstream maintainer**: Kieran Klaassen (@kieranklaassen)
+- **Upstream maintainers**: Kieran Klaassen (@kieranklaassen), Trevin Chow
