@@ -5,7 +5,7 @@
     "url": "https://github.com/JuanCaicedo"
   },
   "metadata": {
-    "description": "Juan Caicedo's fork of the compound-engineering plugin, adding GitLab merge-request and Vanna-specific skills",
+    "description": "Juan Caicedo's fork of the compound-engineering plugin, adding GitLab merge-request skills",
     "version": "1.0.3"
   },
   "plugins": [

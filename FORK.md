@@ -4,13 +4,12 @@ This is Juan Caicedo's fork of [EveryInc/compound-engineering-plugin](https://gi
 
 ## What This Fork Adds
 
-The fork exists to carry **GitLab** and **Vanna**-specific skills that upstream does not want, since upstream is GitHub-only by design.
+The fork exists to carry **GitLab** skills, which upstream does not want — upstream is GitHub-only by design.
 
 | Skill | Purpose |
 |-------|---------|
 | `ce-resolve-mr-feedback` | GitLab counterpart to upstream's `ce-resolve-pr-feedback`. Speaks GitLab discussions via `glab`. |
 | `ce-generate-review-guide` | Produces a reviewer's guide from a GitLab MR URL. |
-| `ce-vanna-patterns-review` | Reviews a branch against the patterns documented in the Vanna docs repository. |
 
 One upstream skill is modified:
 
@@ -52,7 +51,7 @@ Upstream enforces these with tests. A new fork skill that ignores them will fail
 - **Prompt assets carry no YAML frontmatter.** Model and tool policy belong in the calling SKILL.md.
 - **LF line endings** on bundled scripts (`tests/bundled-script-line-endings.test.ts`).
 
-Fork skills that read a docs repository outside the current project (`ce-generate-review-guide`, `ce-vanna-patterns-review`) resolve it as `$VANNA_DOCS_ROOT` first, then `$HOME/code/vanna/docs`, and fail loudly rather than silently reviewing against nothing.
+`ce-generate-review-guide` writes outside the current project, into a central docs repository. It resolves that location as `$VANNA_DOCS_ROOT` first, then `$HOME/code/vanna/docs`.
 
 ## Syncing With Upstream
 
@@ -105,7 +104,7 @@ jq . .claude-plugin/plugin.json
 Then confirm the fork surface survived:
 
 ```bash
-ls skills/ | grep -E 'ce-(resolve-mr-feedback|generate-review-guide|vanna-patterns-review)'
+ls skills/ | grep -E 'ce-(resolve-mr-feedback|generate-review-guide)'
 grep -c 'ft-<ticket>' skills/ce-plan/SKILL.md   # expect 2 or more
 ```
 

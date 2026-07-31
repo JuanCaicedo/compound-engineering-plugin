@@ -4,7 +4,7 @@
 
 AI skills that make each unit of engineering work easier than the last.
 
-> **Fork notice:** This is [Juan Caicedo's fork](https://github.com/JuanCaicedo/compound-engineering-plugin) of [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin). It adds GitLab merge-request and Vanna-specific skills on top of upstream. Install paths below point at the fork. See [FORK.md](FORK.md) for what differs and how to sync.
+> **Fork notice:** This is [Juan Caicedo's fork](https://github.com/JuanCaicedo/compound-engineering-plugin) of [EveryInc/compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin). It adds GitLab merge-request skills on top of upstream. Install paths below point at the fork. See [FORK.md](FORK.md) for what differs and how to sync.
 
 ## Install
 
