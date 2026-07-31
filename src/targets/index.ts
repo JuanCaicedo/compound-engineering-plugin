@@ -1,24 +1,12 @@
 import type { ClaudePlugin } from "../types/claude"
 import { convertClaudeToOpenCode, type ClaudeToOpenCodeOptions } from "../converters/claude-to-opencode"
 import { convertClaudeToCodex } from "../converters/claude-to-codex"
-import { convertClaudeToDroid } from "../converters/claude-to-droid"
 import { convertClaudeToPi } from "../converters/claude-to-pi"
-import { convertClaudeToCopilot } from "../converters/claude-to-copilot"
-import { convertClaudeToGemini } from "../converters/claude-to-gemini"
-import { convertClaudeToKiro } from "../converters/claude-to-kiro"
-import { convertClaudeToWindsurf } from "../converters/claude-to-windsurf"
-import { convertClaudeToOpenClaw } from "../converters/claude-to-openclaw"
-import { convertClaudeToQwen } from "../converters/claude-to-qwen"
+import { convertClaudeToAntigravity } from "../converters/claude-to-antigravity"
 import { writeOpenCodeBundle } from "./opencode"
 import { writeCodexBundle } from "./codex"
-import { writeDroidBundle } from "./droid"
 import { writePiBundle } from "./pi"
-import { writeCopilotBundle } from "./copilot"
-import { writeGeminiBundle } from "./gemini"
-import { writeKiroBundle } from "./kiro"
-import { writeWindsurfBundle } from "./windsurf"
-import { writeOpenClawBundle } from "./openclaw"
-import { writeQwenBundle } from "./qwen"
+import { writeAntigravityBundle } from "./antigravity"
 
 export type TargetScope = "global" | "workspace"
 
@@ -68,13 +56,10 @@ export const targets: Record<string, TargetHandler> = {
     name: "codex",
     implemented: true,
     convert: convertClaudeToCodex as TargetHandler["convert"],
-    write: writeCodexBundle as TargetHandler["write"],
-  },
-  droid: {
-    name: "droid",
-    implemented: true,
-    convert: convertClaudeToDroid as TargetHandler["convert"],
-    write: writeDroidBundle as TargetHandler["write"],
+    write: ((outputRoot, bundle) =>
+      writeCodexBundle(outputRoot, bundle as Parameters<typeof writeCodexBundle>[1], {
+        outputIsCodexRoot: true,
+      })) as TargetHandler["write"],
   },
   pi: {
     name: "pi",
@@ -82,42 +67,10 @@ export const targets: Record<string, TargetHandler> = {
     convert: convertClaudeToPi as TargetHandler["convert"],
     write: writePiBundle as TargetHandler["write"],
   },
-  copilot: {
-    name: "copilot",
+  antigravity: {
+    name: "antigravity",
     implemented: true,
-    convert: convertClaudeToCopilot as TargetHandler["convert"],
-    write: writeCopilotBundle as TargetHandler["write"],
-  },
-  gemini: {
-    name: "gemini",
-    implemented: true,
-    convert: convertClaudeToGemini as TargetHandler["convert"],
-    write: writeGeminiBundle as TargetHandler["write"],
-  },
-  kiro: {
-    name: "kiro",
-    implemented: true,
-    convert: convertClaudeToKiro as TargetHandler["convert"],
-    write: writeKiroBundle as TargetHandler["write"],
-  },
-  windsurf: {
-    name: "windsurf",
-    implemented: true,
-    defaultScope: "global",
-    supportedScopes: ["global", "workspace"],
-    convert: convertClaudeToWindsurf as TargetHandler["convert"],
-    write: writeWindsurfBundle as TargetHandler["write"],
-  },
-  openclaw: {
-    name: "openclaw",
-    implemented: true,
-    convert: convertClaudeToOpenClaw as TargetHandler["convert"],
-    write: writeOpenClawBundle as TargetHandler["write"],
-  },
-  qwen: {
-    name: "qwen",
-    implemented: true,
-    convert: convertClaudeToQwen as TargetHandler["convert"],
-    write: writeQwenBundle as TargetHandler["write"],
+    convert: convertClaudeToAntigravity as TargetHandler["convert"],
+    write: writeAntigravityBundle as TargetHandler["write"],
   },
 }

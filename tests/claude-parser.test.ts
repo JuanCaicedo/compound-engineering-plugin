@@ -1,23 +1,82 @@
-import { describe, expect, test } from "bun:test"
+import { afterAll, afterEach, describe, expect, test } from "bun:test"
+import fs from "fs/promises"
+import os from "os"
 import path from "path"
 import { loadClaudePlugin } from "../src/parsers/claude"
 import { filterSkillsByPlatform } from "../src/types/claude"
+import { materializeClaudePluginFixture } from "./helpers/claude-plugin-fixture"
 
-const fixtureRoot = path.join(import.meta.dir, "fixtures", "sample-plugin")
-const mcpFixtureRoot = path.join(import.meta.dir, "fixtures", "mcp-file")
-const customPathsRoot = path.join(import.meta.dir, "fixtures", "custom-paths")
-const invalidCommandPathRoot = path.join(import.meta.dir, "fixtures", "invalid-command-path")
-const invalidHooksPathRoot = path.join(import.meta.dir, "fixtures", "invalid-hooks-path")
-const invalidMcpPathRoot = path.join(import.meta.dir, "fixtures", "invalid-mcp-path")
+const compoundPluginRoot = path.join(import.meta.dir, "..")
+const fixtureNames = [
+  "sample-plugin",
+  "mcp-file",
+  "custom-paths",
+  "invalid-command-path",
+  "invalid-hooks-path",
+  "invalid-mcp-path",
+] as const
+const fixtures = fixtureNames.map((name) =>
+  materializeClaudePluginFixture(path.join(import.meta.dir, "fixtures", name)),
+)
+const [
+  fixtureRoot,
+  mcpFixtureRoot,
+  customPathsRoot,
+  invalidCommandPathRoot,
+  invalidHooksPathRoot,
+  invalidMcpPathRoot,
+] = fixtures.map((fixture) => fixture.root)
+const tempRoots: string[] = []
+
+afterAll(() => {
+  for (const fixture of fixtures) fixture.cleanup()
+})
+
+afterEach(async () => {
+  for (const root of tempRoots.splice(0, tempRoots.length)) {
+    await fs.rm(root, { recursive: true, force: true })
+  }
+})
+
+async function makeMinimalPluginRoot(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "claude-parser-agent-md-"))
+  tempRoots.push(root)
+  await fs.mkdir(path.join(root, ".claude-plugin"), { recursive: true })
+  await fs.mkdir(path.join(root, "agents"), { recursive: true })
+  await fs.writeFile(
+    path.join(root, ".claude-plugin", "plugin.json"),
+    JSON.stringify({ name: "test-plugin", version: "1.0.0" }, null, 2),
+  )
+  return root
+}
 
 describe("loadClaudePlugin", () => {
+  test("repository tree exposes only the root Claude plugin manifest", async () => {
+    const manifests: string[] = []
+    const glob = new Bun.Glob("**/.claude-plugin/plugin.json")
+
+    for await (const manifest of glob.scan({ cwd: compoundPluginRoot, dot: true, onlyFiles: true })) {
+      manifests.push(manifest)
+    }
+
+    expect(manifests.sort()).toEqual([".claude-plugin/plugin.json"])
+  })
+
+  test("current compound-engineering plugin ships skills but no source commands or standalone agents", async () => {
+    const plugin = await loadClaudePlugin(compoundPluginRoot)
+
+    expect(plugin.commands).toHaveLength(0)
+    expect(plugin.skills.length).toBeGreaterThan(0)
+    expect(plugin.agents).toHaveLength(0)
+  })
+
   test("loads manifest, agents, commands, skills, hooks", async () => {
     const plugin = await loadClaudePlugin(fixtureRoot)
 
     expect(plugin.manifest.name).toBe("compound-engineering")
     expect(plugin.agents.length).toBe(2)
     expect(plugin.commands.length).toBe(7)
-    expect(plugin.skills.length).toBe(3)
+    expect(plugin.skills.length).toBe(4)
     expect(plugin.hooks).toBeDefined()
     expect(plugin.mcpServers).toBeDefined()
 
@@ -106,6 +165,17 @@ describe("loadClaudePlugin", () => {
     expect(normalSkill?.disableModelInvocation).toBeUndefined()
   })
 
+  test("parses user-invocable: false from skills", async () => {
+    const plugin = await loadClaudePlugin(fixtureRoot)
+
+    const agentOnlySkill = plugin.skills.find((skill) => skill.name === "agent-only-skill")
+    expect(agentOnlySkill).toBeDefined()
+    expect(agentOnlySkill?.userInvocable).toBe(false)
+
+    const normalSkill = plugin.skills.find((skill) => skill.name === "skill-one")
+    expect(normalSkill?.userInvocable).toBeUndefined()
+  })
+
   test("loads MCP servers from .mcp.json when manifest is empty", async () => {
     const plugin = await loadClaudePlugin(mcpFixtureRoot)
     expect(plugin.mcpServers?.remote?.url).toBe("https://example.com/stream")
@@ -136,5 +206,43 @@ describe("loadClaudePlugin", () => {
     await expect(loadClaudePlugin(invalidMcpPathRoot)).rejects.toThrow(
       "Invalid mcpServers path: ../outside-mcp.json. Paths must stay within the plugin root.",
     )
+  })
+
+  test("loads .agent.md files with explicit frontmatter names", async () => {
+    const root = await makeMinimalPluginRoot()
+    await fs.writeFile(
+      path.join(root, "agents", "repo-research-analyst.agent.md"),
+      `---
+name: repo-research-analyst
+description: Research helper
+---
+
+Research prompt.
+`,
+    )
+
+    const plugin = await loadClaudePlugin(root)
+
+    expect(plugin.agents).toHaveLength(1)
+    expect(plugin.agents[0]?.name).toBe("repo-research-analyst")
+    expect(plugin.agents[0]?.sourcePath.endsWith("repo-research-analyst.agent.md")).toBe(true)
+  })
+
+  test("falls back to the filename stem for .agent.md files without name frontmatter", async () => {
+    const root = await makeMinimalPluginRoot()
+    await fs.writeFile(
+      path.join(root, "agents", "cleanup-specialist.agent.md"),
+      `---
+description: Cleanup helper
+---
+
+Cleanup prompt.
+`,
+    )
+
+    const plugin = await loadClaudePlugin(root)
+
+    expect(plugin.agents).toHaveLength(1)
+    expect(plugin.agents[0]?.name).toBe("cleanup-specialist")
   })
 })

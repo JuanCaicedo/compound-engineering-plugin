@@ -1,11 +1,13 @@
 import { formatFrontmatter } from "../utils/frontmatter"
-import { normalizeModelWithProvider } from "../utils/model"
+import { normalizeModelWithProvider, rejectsSamplingParams } from "../utils/model"
+import { commandNameToRelativePath } from "../utils/files"
 import {
   type ClaudeAgent,
   type ClaudeCommand,
   type ClaudeHooks,
   type ClaudePlugin,
   type ClaudeMcpServer,
+  type ClaudeSkill,
   filterSkillsByPlatform,
 } from "../types/claude"
 import type {
@@ -21,6 +23,24 @@ export type ClaudeToOpenCodeOptions = {
   agentMode: "primary" | "subagent"
   inferTemperature: boolean
   permissions: PermissionMode
+  /**
+   * Codex-only option. Ignored by other targets.
+   *
+   * When false (default), `convertClaudeToCodex` emits only agent conversions.
+   * Skills and commands are expected to install via Codex's native plugin flow
+   * (`codex plugin install`), which the Bun converter complements rather than
+   * duplicates. Without this setting, running both native install and the Bun
+   * converter registers skills twice — once from the native plugin manifest,
+   * once from the converter output — creating conflicts.
+   *
+   * When true, the converter emits skills (copied as-is), commands (as prompts
+   * and generated skills), and agents together. Use when installing without
+   * Codex native plugin install (legacy / standalone flow).
+   *
+   * Obsolete once Codex's native plugin spec supports custom agents; at that
+   * point the entire `--to codex` converter path is expected to be deprecated.
+   */
+  codexIncludeSkills?: boolean
 }
 
 const TOOL_MAP: Record<string, string> = {
@@ -68,7 +88,24 @@ export function convertClaudeToOpenCode(
   options: ClaudeToOpenCodeOptions,
 ): OpenCodeBundle {
   const agentFiles = plugin.agents.map((agent) => convertAgent(agent, options))
-  const cmdFiles = convertCommands(plugin.commands)
+  const openCodeSkills = filterSkillsByPlatform(plugin.skills, "opencode")
+  // Commands from the plugin's commands/ directory take priority; skill stubs
+  // are only appended for names that don't already have an explicit command.
+  // Dedup uses the normalized path key (colons -> slashes) to match the writer's
+  // on-disk layout -- "foo:bar" and a skill named "foo/bar" both resolve to
+  // commands/foo/bar.md, so they must be treated as the same command here.
+  const explicitCommands = convertCommands(plugin.commands)
+  const explicitCommandPaths = new Set(explicitCommands.map((c) => commandNameToRelativePath(c.name)))
+  // Also deduplicate stubs against each other by normalized path, in case two
+  // skills resolve to the same commands/<path>.md. Keep the first occurrence.
+  const seenStubPaths = new Set<string>()
+  const skillStubs = convertSkillsToCommands(openCodeSkills).filter((stub) => {
+    const normalizedPath = commandNameToRelativePath(stub.name)
+    if (explicitCommandPaths.has(normalizedPath) || seenStubPaths.has(normalizedPath)) return false
+    seenStubPaths.add(normalizedPath)
+    return true
+  })
+  const cmdFiles = [...explicitCommands, ...skillStubs]
   const mcp = plugin.mcpServers ? convertMcp(plugin.mcpServers) : undefined
   const plugins = plugin.hooks ? [convertHooks(plugin.hooks)] : []
 
@@ -77,14 +114,15 @@ export function convertClaudeToOpenCode(
     mcp: mcp && Object.keys(mcp).length > 0 ? mcp : undefined,
   }
 
-  applyPermissions(config, plugin.commands, options.permissions)
+  applyPermissions(config, plugin.commands, options.permissions, skillStubs.length > 0)
 
   return {
+    pluginName: plugin.manifest.name,
     config,
     agents: agentFiles,
     commandFiles: cmdFiles,
     plugins,
-    skillDirs: filterSkillsByPlatform(plugin.skills, "opencode").map((skill) => ({ sourceDir: skill.sourceDir, name: skill.name })),
+    skillDirs: openCodeSkills.map((skill) => ({ sourceDir: skill.sourceDir, name: skill.name })),
   }
 }
 
@@ -104,7 +142,15 @@ function convertAgent(agent: ClaudeAgent, options: ClaudeToOpenCodeOptions) {
 
   if (options.inferTemperature) {
     const temperature = inferTemperature(agent)
-    if (temperature !== undefined) {
+    // A written model that rejects non-default sampling params (Sonnet 5, Opus
+    // 4.7+) returns HTTP 400 if paired with a temperature. We only write model
+    // for primary agents, so suppression only applies there; subagents inherit
+    // the parent session's model and are out of scope.
+    const modelRejectsTemperature =
+      frontmatter.model !== undefined &&
+      typeof agent.model === "string" &&
+      rejectsSamplingParams(agent.model)
+    if (temperature !== undefined && !modelRejectsTemperature) {
       frontmatter.temperature = temperature
     }
   }
@@ -131,6 +177,31 @@ function convertCommands(commands: ClaudeCommand[]): OpenCodeCommandFile[] {
     }
     const content = formatFrontmatter(frontmatter, rewriteClaudePaths(command.body))
     files.push({ name: command.name, content })
+  }
+  return files
+}
+
+// Generate a slash-command stub for each skill so OpenCode users can invoke
+// /ce-work, /ce-plan, etc. just like Claude Code users do.
+// The stub body delegates to the skill tool so the full skill content is loaded.
+//
+// Only `user-invocable: false` suppresses a stub. `disable-model-invocation`
+// does NOT: that flag means the skill is user-invocation-only (e.g. ce-polish,
+// whose description says "type /ce-polish to run it"), so a slash command is the
+// only entry point it has -- exactly the skill that most needs a stub.
+function convertSkillsToCommands(skills: ClaudeSkill[]): OpenCodeCommandFile[] {
+  const files: OpenCodeCommandFile[] = []
+  for (const skill of skills) {
+    if (skill.userInvocable === false) continue
+    const frontmatter: Record<string, unknown> = {
+      description: skill.description,
+    }
+    if (skill.argumentHint) {
+      frontmatter["argument-hint"] = skill.argumentHint
+    }
+    const body = `Load and execute the \`${skill.name}\` skill.\n\n$ARGUMENTS`
+    const content = formatFrontmatter(frontmatter, body)
+    files.push({ name: skill.name, content })
   }
   return files
 }
@@ -270,10 +341,12 @@ function rewriteClaudePaths(body: string): string {
  * Transform skill/agent content for OpenCode compatibility.
  * Composes path rewriting with fully-qualified agent name flattening.
  *
- * OpenCode resolves agents by flat filename, so 3-segment FQ references
- * like `compound-engineering:document-review:coherence-reviewer` must be
- * rewritten to just `coherence-reviewer`. 2-segment skill references
- * (e.g. `compound-engineering:document-review`) are left unchanged.
+ * OpenCode resolves agents by flat filename, so fully-qualified agent
+ * references must be flattened. Both 3-segment legacy refs
+ * (`compound-engineering:document-review:coherence-reviewer` -> `coherence-reviewer`)
+ * and 2-segment category-qualified refs (`review:ce-correctness-reviewer` ->
+ * `ce-correctness-reviewer`) are handled. 2-segment skill references without
+ * `ce-` prefix (e.g. `compound-engineering:document-review`) are left unchanged.
  * See #477.
  */
 export function transformSkillContentForOpenCode(body: string): string {
@@ -285,6 +358,13 @@ export function transformSkillContentForOpenCode(body: string): string {
   // `/team:ops:deploy` — agent names are never preceded by `/`.
   result = result.replace(
     /(?<![a-z0-9:/-])[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:([a-z][a-z0-9-]*)(?![a-z0-9:-])/g,
+    "$1",
+  )
+  // Rewrite 2-segment category-qualified agent refs: category:ce-agent -> ce-agent.
+  // Only matches when the agent segment starts with `ce-` to avoid false positives
+  // on slash commands or other colon-separated patterns.
+  result = result.replace(
+    /(?<![a-z0-9:/-])[a-z][a-z0-9-]*:(ce-[a-z][a-z0-9-]*)(?![a-z0-9:-])/g,
     "$1",
   )
   return result
@@ -311,6 +391,7 @@ function applyPermissions(
   config: OpenCodeConfig,
   commands: ClaudeCommand[],
   mode: PermissionMode,
+  hasSkillStubs = false,
 ) {
   if (mode === "none") return
 
@@ -349,14 +430,34 @@ function applyPermissions(
         }
       }
     }
+    // Skill stubs require the `skill` tool to load the skill at invocation time.
+    // If we're emitting stubs, ensure `skill` is allowed even when no explicit
+    // command listed it in allowed-tools, and even when a command listed a
+    // patterned skill(foo-*) rule: a pattern-scoped permission would still
+    // block stubs for skills outside the pattern. Clear any skill patterns so
+    // the permission build emits a flat "allow" for the skill tool.
+    if (hasSkillStubs) {
+      enabled.add("skill")
+      delete patterns["skill"]
+      // `from-commands` only allows tools that explicit commands declare. A
+      // generated stub can load its skill, but the skill body may need tools
+      // (read/bash/edit/...) that no command declared, so this mode denies
+      // them and the skill stalls mid-run. We allow `skill` so the stub at
+      // least loads; warn so the user can pick `none`/`broad` if their skills
+      // need to act. (The default install mode is `none`, which writes no
+      // permission block and is unaffected.)
+      if (enabled.size === 1 && enabled.has("skill")) {
+        console.warn(
+          "Warning: --permissions from-commands restricts tools to those declared by explicit commands, " +
+            "but this plugin's slash commands are skill stubs with no declared tools. The stubs can load " +
+            "their skills, but the skills may be blocked from using read/bash/edit/etc. Use --permissions none " +
+            "(default) or broad if your skills need to act.",
+        )
+      }
+    }
   }
 
   const permission: Record<string, "allow" | "deny" | Record<string, "allow" | "deny">> = {}
-  const tools: Record<string, boolean> = {}
-
-  for (const tool of sourceTools) {
-    tools[tool] = mode === "broad" ? true : enabled.has(tool)
-  }
 
   if (mode === "broad") {
     for (const tool of sourceTools) {
@@ -377,17 +478,6 @@ function applyPermissions(
     }
   }
 
-  if (mode !== "broad") {
-    for (const [tool, toolPatterns] of Object.entries(patterns)) {
-      if (!toolPatterns || toolPatterns.size === 0) continue
-      const patternPermission: Record<string, "allow" | "deny"> = { "*": "deny" }
-      for (const pattern of toolPatterns) {
-        patternPermission[pattern] = "allow"
-      }
-      ;(permission)[tool] = patternPermission
-    }
-  }
-
   if (enabled.has("write") || enabled.has("edit")) {
     if (typeof permission.edit === "string") permission.edit = "allow"
     if (typeof permission.write === "string") permission.write = "allow"
@@ -405,11 +495,6 @@ function applyPermissions(
   }
 
   config.permission = permission
-  config.tools = tools
-}
-
-function normalizeTool(raw: string): string | null {
-  return parseToolSpec(raw).tool
 }
 
 function parseToolSpec(raw: string): { tool: string | null; pattern?: string } {
