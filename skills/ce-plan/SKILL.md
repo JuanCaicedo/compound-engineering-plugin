@@ -496,12 +496,12 @@ Ask the user only when the answer materially affects architecture, scope, sequen
 
 - Draft a clear, searchable title using conventional format such as `feat: Add user authentication` or `fix: Prevent checkout double-submit`
 - Determine the plan type: `feat`, `fix`, or `refactor`
-- Build the filename following the repository convention: `<root>/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md`
+- Build the filename following the repository convention: `<root>/plans/YYYY-MM-DD-ft-<ticket>-<type>-<descriptive-name>-plan.md`
   - Create `<root>/plans/` if it does not exist
-  - Check existing files for today's date to determine the next sequence number (zero-padded to 3 digits, starting at 001)
+  - Plans are identified by their **ticket**, not a daily sequence number. Ask the user for the ticket number if it is not already in the conversation, then prepend `ft-` to form the identifier (e.g., ticket `123` → `ft-123`). The `ft-` prefix is always present, whatever the tracker calls the ticket.
   - Keep the descriptive name concise (3-5 words) and kebab-cased
-  - Examples: `2026-01-15-001-feat-user-authentication-flow-plan.md`, `2026-02-03-002-fix-checkout-race-condition-plan.md`
-  - Avoid: missing sequence numbers, vague names like "new-feature", invalid characters (colons, spaces)
+  - Examples: `2026-01-15-ft-123-feat-user-authentication-flow-plan.md`, `2026-02-03-ft-456-fix-checkout-race-condition-plan.md`
+  - Avoid: missing ticket identifier, bare sequence numbers, vague names like "new-feature", invalid characters (colons, spaces)
 
 #### 3.2 Stakeholder and Impact Awareness
 
@@ -718,10 +718,10 @@ for HTML by the format gate in `references/plan-handoff.md`.
 Use the Write tool to save the complete plan to the resolved format's extension:
 
 ```text
-<root>/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.<md|html>
+<root>/plans/YYYY-MM-DD-ft-<ticket>-<type>-<descriptive-name>-plan.<md|html>
 ```
 
-Extension follows `OUTPUT_FORMAT` from Phase 0.0 — `.md` when markdown, `.html` when HTML. Sequence number `NNN` is derived from existing plan files in `<root>/plans/` regardless of extension (count both `.md` and `.html`) to ensure unique daily ordering.
+Extension follows `OUTPUT_FORMAT` from Phase 0.0 — `.md` when markdown, `.html` when HTML. The `ft-<ticket>` identifier comes from Phase 3.1 and is what makes the filename unique, so no daily sequence number is used.
 
 Compose the plan using the content from `references/plan-sections.md` and the format-specific principles from the rendering reference loaded at Phase 0.0 (`markdown-rendering.md` OR `html-rendering.md`).
 
