@@ -8,3 +8,6 @@
 skills/ce-babysit-pr/scripts/pr-snapshot text eol=lf
 skills/ce-resolve-pr-feedback/scripts/* text eol=lf
 skills/ce-setup/scripts/check-health text eol=lf
+
+# Fork-only skills (see FORK.md).
+skills/ce-resolve-mr-feedback/scripts/* text eol=lf
