@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# Lists unresolved, resolvable discussion threads on a GitLab merge request.
+#
+# GitLab models review threads as "discussions": a discussion is a list of
+# notes, and only notes attached to a diff carry `resolvable: true`. A thread
+# counts as unresolved when it is resolvable and at least one of its notes has
+# `resolved: false`. Non-resolvable discussions (plain MR comments) are emitted
+# separately so the caller can still address them -- they have no resolve
+# endpoint, so they can be replied to but never resolved.
+#
+# Output is a single JSON object so the caller does one read:
+#   { "unresolved": [...], "comments": [...] }
+# Each unresolved entry carries the discussion id, file path, line, author, and
+# the note bodies -- everything the orchestrator needs to triage without a
+# second fetch.
+
+set -e
+
+if [ $# -eq 0 ]; then
+    echo "Usage: get-mr-discussions MR_IID"
+    echo "Example: get-mr-discussions 42"
+    exit 1
+fi
+
+MR_IID=$1
+
+glab api --paginate "projects/:id/merge_requests/$MR_IID/discussions?per_page=100" | jq -s '
+  add
+  | {
+      unresolved: [
+        .[]
+        | select(any(.notes[]?; .resolvable == true and .resolved == false))
+        | {
+            discussion_id: .id,
+            path: (
+              [.notes[]? | .position.new_path // .position.old_path | select(. != null)]
+              | first // null
+            ),
+            line: (
+              [.notes[]? | .position.new_line // .position.old_line | select(. != null)]
+              | first // null
+            ),
+            notes: [
+              .notes[]?
+              | select(.system != true)
+              | { id: .id, author: .author.username, body: .body, created_at: .created_at }
+            ]
+          }
+      ],
+      comments: [
+        .[]
+        | select(all(.notes[]?; .resolvable != true))
+        | {
+            discussion_id: .id,
+            notes: [
+              .notes[]?
+              | select(.system != true)
+              | { id: .id, author: .author.username, body: .body, created_at: .created_at }
+            ]
+          }
+        | select((.notes | length) > 0)
+      ]
+    }
+'

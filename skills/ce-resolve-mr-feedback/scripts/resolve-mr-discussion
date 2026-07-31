@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Marks an MR discussion thread resolved.
+#
+# Only discussions with resolvable notes (diff comments) can be resolved --
+# GitLab returns 400 for a plain MR comment. get-mr-discussions already
+# separates the two, so pass only ids from its `unresolved` list.
+
+set -e
+
+if [ $# -lt 2 ]; then
+    echo "Usage: resolve-mr-discussion MR_IID DISCUSSION_ID"
+    echo "Example: resolve-mr-discussion 42 abc123def"
+    exit 1
+fi
+
+MR_IID=$1
+DISCUSSION_ID=$2
+
+glab api --method PUT \
+    "projects/:id/merge_requests/$MR_IID/discussions/$DISCUSSION_ID" \
+    --field resolved=true

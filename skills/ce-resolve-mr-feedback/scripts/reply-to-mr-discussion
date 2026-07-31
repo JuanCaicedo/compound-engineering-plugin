@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# Adds a reply note inside an existing MR discussion thread.
+#
+# Body is read from stdin rather than argv so markdown with quotes, newlines,
+# and backticks survives without shell escaping. The body is passed via
+# --raw-field (not --field) so a body that happens to be `true`, `null`, or a
+# bare integer is sent as a JSON string instead of being type-converted.
+
+set -e
+
+if [ $# -lt 2 ]; then
+    echo "Usage: echo 'reply body' | reply-to-mr-discussion MR_IID DISCUSSION_ID"
+    echo "Example: echo 'Addressed: added null check' | reply-to-mr-discussion 42 abc123def"
+    exit 1
+fi
+
+MR_IID=$1
+DISCUSSION_ID=$2
+BODY=$(cat)
+
+if [ -z "$BODY" ]; then
+    echo "Error: No body provided on stdin."
+    exit 1
+fi
+
+glab api --method POST \
+    "projects/:id/merge_requests/$MR_IID/discussions/$DISCUSSION_ID/notes" \
+    --raw-field "body=$BODY"
