@@ -14,6 +14,34 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
+const SESSION_HISTORIAN_DESCRIPTION =
+  "Synthesizes findings from prior coding-agent sessions about the same problem or topic. Receives pre-extracted skeleton/error file paths from a `ce-sessions` orchestrator and returns prose findings — investigation journey, what didn't work, key decisions, related context. Not intended for direct dispatch — use `/ce-sessions` (or another caller that runs the full discovery + extract pipeline first)."
+const REPO_RESEARCH_ANALYST_DESCRIPTION =
+  "Conducts thorough research on repository structure, documentation, conventions, and implementation patterns. Use when onboarding to a new codebase or understanding project conventions."
+
+const REPRODUCE_BUG_DESCRIPTION =
+  "Systematically reproduce and investigate a bug from a GitHub issue. Use when the user provides a GitHub issue number or URL for a bug they want reproduced or investigated."
+
+function skillContent(name: string, description: string): string {
+  return `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---\n\n# ${name}\n`
+}
+
+function kiroAgentConfig(name: string, description: string): string {
+  return JSON.stringify(
+    {
+      name,
+      description,
+      prompt: `file://./prompts/${name}.md`,
+      tools: ["*"],
+      resources: ["file://.kiro/steering/**/*.md", "skill://.kiro/skills/**/SKILL.md"],
+      includeMcpJson: true,
+      welcomeMessage: `Switching to the ${name} agent. ${description}`,
+    },
+    null,
+    2,
+  )
+}
+
 const emptyBundle: KiroBundle = {
   agents: [],
   generatedSkills: [],
@@ -23,6 +51,79 @@ const emptyBundle: KiroBundle = {
 }
 
 describe("writeKiroBundle", () => {
+  test("removes legacy Kiro agent config and prompt files during rename cleanup", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-cleanup-"))
+    const kiroRoot = path.join(tempRoot, ".kiro")
+    await fs.mkdir(path.join(kiroRoot, "agents", "prompts"), { recursive: true })
+
+    await fs.writeFile(
+      path.join(kiroRoot, "agents", "session-historian.json"),
+      JSON.stringify({
+        name: "session-historian",
+        description: SESSION_HISTORIAN_DESCRIPTION,
+        prompt: "file://./prompts/session-historian.md",
+        tools: ["*"],
+        resources: ["file://.kiro/steering/**/*.md", "skill://.kiro/skills/**/SKILL.md"],
+        includeMcpJson: true,
+        welcomeMessage: `Switching to the session-historian agent. ${SESSION_HISTORIAN_DESCRIPTION}`,
+      }),
+    )
+    await fs.writeFile(
+      path.join(kiroRoot, "agents", "prompts", "session-historian.md"),
+      "Legacy session-historian prompt\n",
+    )
+
+    await writeKiroBundle(kiroRoot, emptyBundle)
+
+    expect(await exists(path.join(kiroRoot, "agents", "session-historian.json"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "agents", "prompts", "session-historian.md"))).toBe(false)
+  })
+
+  test("removes historical CE Kiro artifacts during install", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-legacy-artifacts-"))
+    const kiroRoot = path.join(tempRoot, ".kiro")
+    const sourceSkillDir = path.join(tempRoot, "source-skill")
+    await fs.mkdir(sourceSkillDir, { recursive: true })
+    await fs.writeFile(
+      path.join(sourceSkillDir, "SKILL.md"),
+      "---\nname: ce-plan\ndescription: Plan\n---\n\nPlan.",
+    )
+    await fs.mkdir(path.join(kiroRoot, "skills", "reproduce-bug"), { recursive: true })
+    await fs.writeFile(path.join(kiroRoot, "skills", "reproduce-bug", "SKILL.md"), skillContent("reproduce-bug", REPRODUCE_BUG_DESCRIPTION))
+    await fs.mkdir(path.join(kiroRoot, "agents", "prompts"), { recursive: true })
+    await fs.writeFile(path.join(kiroRoot, "agents", "repo-research-analyst.json"), kiroAgentConfig("repo-research-analyst", REPO_RESEARCH_ANALYST_DESCRIPTION))
+    await fs.writeFile(path.join(kiroRoot, "agents", "prompts", "repo-research-analyst.md"), "legacy prompt")
+
+    await writeKiroBundle(kiroRoot, {
+      ...emptyBundle,
+      pluginName: "compound-engineering",
+      skillDirs: [{ name: "ce-plan", sourceDir: sourceSkillDir }],
+    })
+
+    expect(await exists(path.join(kiroRoot, "skills", "reproduce-bug"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "agents", "repo-research-analyst.json"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "agents", "prompts", "repo-research-analyst.md"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "skills", "ce-plan", "SKILL.md"))).toBe(true)
+  })
+
+  test("preserves user-authored legacy-name Kiro agents during install cleanup", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-legacy-agent-preserve-"))
+    const kiroRoot = path.join(tempRoot, ".kiro")
+    await fs.mkdir(path.join(kiroRoot, "agents", "prompts"), { recursive: true })
+    const userConfig = kiroAgentConfig("ce-repo-research-analyst", "Personal Kiro research helper.")
+    await fs.writeFile(path.join(kiroRoot, "agents", "ce-repo-research-analyst.json"), userConfig)
+    await fs.writeFile(path.join(kiroRoot, "agents", "prompts", "ce-repo-research-analyst.md"), "user prompt")
+
+    await writeKiroBundle(kiroRoot, {
+      ...emptyBundle,
+      pluginName: "compound-engineering",
+    })
+
+    expect(await exists(path.join(kiroRoot, "agents", "ce-repo-research-analyst.json"))).toBe(true)
+    expect(await fs.readFile(path.join(kiroRoot, "agents", "ce-repo-research-analyst.json"), "utf8")).toBe(userConfig)
+    expect(await exists(path.join(kiroRoot, "agents", "prompts", "ce-repo-research-analyst.md"))).toBe(true)
+  })
+
   test("writes agents, skills, steering, and mcp.json", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-test-"))
     const bundle: KiroBundle = {
@@ -106,7 +207,7 @@ describe("writeKiroBundle", () => {
     await fs.writeFile(
       path.join(sourceSkillDir, "SKILL.md"),
       `---
-name: ce:plan
+name: ce-plan
 description: Planning workflow
 ---
 
@@ -120,7 +221,7 @@ Run these research agents:
 
     const bundle: KiroBundle = {
       ...emptyBundle,
-      skillDirs: [{ name: "ce:plan", sourceDir: sourceSkillDir }],
+      skillDirs: [{ name: "ce-plan", sourceDir: sourceSkillDir }],
     }
 
     await writeKiroBundle(tempRoot, bundle)

@@ -5,17 +5,16 @@
     "url": "https://github.com/JuanCaicedo"
   },
   "metadata": {
-    "description": "Juan Caicedo's fork of the compound-engineering plugin (Rails/Ruby/Python components removed)",
-    "version": "1.0.2"
+    "description": "Juan Caicedo's fork of the compound-engineering plugin, adding GitLab merge-request skills",
+    "version": "1.0.3"
   },
   "plugins": [
     {
       "name": "compound-engineering",
-      "description": "AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last.",
+      "description": "Brainstorm, plan, debug, review, and compound learnings with AI agents",
       "author": {
-        "name": "Kieran Klaassen (original), Juan Caicedo (fork)",
-        "url": "https://github.com/JuanCaicedo",
-        "email": "kieran@every.to"
+        "name": "Kieran Klaassen and Trevin Chow (upstream), Juan Caicedo (fork)",
+        "url": "https://github.com/JuanCaicedo"
       },
       "homepage": "https://github.com/JuanCaicedo/compound-engineering-plugin",
       "tags": [
@@ -24,27 +23,9 @@
         "workflow-automation",
         "code-review",
         "quality",
-        "knowledge-management",
-        "image-generation"
+        "knowledge-management"
       ],
-      "source": "./plugins/compound-engineering"
-    },
-    {
-      "name": "coding-tutor",
-      "description": "Personalized coding tutorials that build on your existing knowledge and use your actual codebase for examples. Includes spaced repetition quizzes to reinforce learning. Includes 3 commands and 1 skill.",
-      "author": {
-        "name": "Nityesh Agarwal"
-      },
-      "homepage": "https://github.com/JuanCaicedo/compound-engineering-plugin",
-      "tags": [
-        "coding",
-        "programming",
-        "tutorial",
-        "learning",
-        "spaced-repetition",
-        "education"
-      ],
-      "source": "./plugins/coding-tutor"
+      "source": "./"
     }
   ]
 }

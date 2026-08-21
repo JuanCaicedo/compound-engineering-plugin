@@ -1,5 +1,6 @@
 import { formatFrontmatter } from "../utils/frontmatter"
 import { sanitizePathName } from "../utils/files"
+import { transformSlashCommands } from "../utils/slash-command"
 import { type ClaudeAgent, type ClaudeCommand, type ClaudeMcpServer, type ClaudePlugin, filterSkillsByPlatform } from "../types/claude"
 import type {
   CopilotAgent,
@@ -41,7 +42,7 @@ export function convertClaudeToCopilot(
     console.warn("Warning: Copilot does not support hooks. Hooks were skipped during conversion.")
   }
 
-  return { agents, generatedSkills, skillDirs, mcpConfig }
+  return { pluginName: plugin.manifest.name, agents, generatedSkills, skillDirs, mcpConfig }
 }
 
 function convertAgent(agent: ClaudeAgent, usedNames: Set<string>): CopilotAgent {
@@ -114,20 +115,14 @@ export function transformContentForCopilot(body: string): string {
   })
 
   // 2. Transform slash command references (replace colons with hyphens)
-  const slashCommandPattern = /(?<![:\w])\/([a-z][a-z0-9_:-]*?)(?=[\s,."')\]}`]|$)/gi
-  result = result.replace(slashCommandPattern, (match, commandName: string) => {
-    if (commandName.includes("/")) return match
-    if (["dev", "tmp", "etc", "usr", "var", "bin", "home"].includes(commandName)) return match
-    const normalized = flattenCommandName(commandName)
-    return `/${normalized}`
-  })
+  result = transformSlashCommands(result, (commandName) => `/${flattenCommandName(commandName)}`)
 
   // 3. Replace plugin colon-namespaced command references (e.g. ce:plan → ce-plan, ce:* → ce-*)
   // Scoped to `ce:` prefix which is the compound-engineering plugin namespace.
   // The lookbehind ensures we only match at word boundaries or after common delimiters,
   // avoiding corruption of URLs, code identifiers, or unrelated namespace:value patterns.
   // Note: / is intentionally excluded — slash commands are already handled in step 2.
-  // Captures colons in the name segment so multi-colon refs like ce:work:beta → ce-work-beta.
+  // Captures colons in the name segment so multi-colon refs like ce:foo:bar → ce-foo-bar.
   result = result.replace(/(?<=^|[\s,.()`'"])ce:([a-z*][a-z0-9_*:-]*)/gim, (_, name: string) => `ce-${name.replace(/:/g, "-")}`)
 
   // 4. Rewrite .claude/ paths to .github/ and ~/.claude/ to ~/.copilot/
