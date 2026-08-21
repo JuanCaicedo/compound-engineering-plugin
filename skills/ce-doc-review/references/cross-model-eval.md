@@ -1,5 +1,10 @@
 # Cross-Model Judgment Pass — Skill-Creator Eval Spec
 
+> **DISABLED IN THIS FORK.** Cross-model peer review is turned off (see FORK.md): no code, diff,
+> document, or file content is sent to an external model. This file is retained only so upstream
+> merges apply cleanly. Do not follow its instructions, resolve a route, or execute the peer
+> scripts it references. The calling skill's in-process path is the only route.
+
 This is the eval-case specification for the cross-model judgment pass. It is the
 **load-bearing behavioral gate**: `bun test` does
 not exercise SKILL.md/reference prose, and plugin skill definitions cache at

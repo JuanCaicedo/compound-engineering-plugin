@@ -4,24 +4,55 @@ This is Juan Caicedo's fork of [EveryInc/compound-engineering-plugin](https://gi
 
 ## What This Fork Adds
 
-The fork exists to carry **GitLab** skills, which upstream does not want — upstream is GitHub-only by design.
+The fork exists mainly to carry **GitLab** skills, which upstream does not want — upstream is GitHub-only by design.
 
 | Skill | Purpose |
 |-------|---------|
 | `ce-resolve-mr-feedback` | GitLab counterpart to upstream's `ce-resolve-pr-feedback`. Speaks GitLab discussions via `glab`. |
 | `ce-generate-review-guide` | Produces a reviewer's guide from a GitLab MR URL. |
+| `ce-quick-review` | Lightweight review tier: a fixed 3-agent roster (correctness, combined quality, learnings) with no conditional persona selection, PR targeting, or apply path. Upstream folds the "quick review" ask into `ce-code-review`'s short-circuit, which delegates to the harness's built-in review instead of running CE personas. |
 
-One upstream skill is modified:
+Upstream skills are modified in two places:
 
 - **`ce-plan`** — plan filenames use a ticket identifier (`YYYY-MM-DD-ft-<ticket>-<type>-<name>-plan.md`) instead of upstream's daily sequence number (`-NNN-`).
+- **Cross-model peer review is disabled fork-wide** — see below.
 
 Everything else tracks upstream unchanged.
+
+## No Content Leaves the Machine
+
+Upstream ships four surfaces that send project content to an external model CLI (Codex, Claude, Grok, Cursor/Composer). **All four are disabled in this fork.** No code, diff, document, plan, prompt brief, or unit packet is sent to a peer model for review, judgment, or implementation. (One unrelated opt-in path remains — see "Not covered" below.)
+
+| Surface | Upstream behavior | Fork behavior |
+|---|---|---|
+| `ce-code-review` | Cross-model adversarial pass ships the working-tree diff to a peer CLI | Never starts a peer. The in-process `adversarial-reviewer` always owns the lens, in every scope mode. |
+| `ce-doc-review` | Cross-model judgment pass ships the document and per-lens slices | Never runs. Every lens is satisfied in-process. |
+| `ce-pov` | Cross-model panel ships the subject and consults peers | Never convenes. A peer/`oracle` summons returns the solo POV plus an explicit disabled note. |
+| `ce-work` | Cross-model execution engine ships bounded units to an external harness to author | Not selectable. Always implements natively. `implementation_run:` recovery is also disabled, since resuming reopens the channel. |
+
+**The machinery stays on disk.** `cross-model-*.md` references, `cross-model-*.sh` workers, and `peer-job-runner.py` are untouched so upstream merges apply cleanly and the parity tests keep passing. Each dormant reference carries a `DISABLED IN THIS FORK` banner. The gates are in the orchestration prose, at the point where each skill would otherwise resolve a route or start a job — that is the layer to re-check after every sync.
+
+Two config keys are now inert and documented as such in `config-template.yaml`, its byte-identical `.compound-engineering/config.local.example.yaml` copy, and `docs/skills/configuration.md`: `cross_model_peer` and the `work_engine_mode` / `work_engine_preferences` pair. Setting them does not re-enable anything.
+
+**Not covered: model elevation.** `ce-plan` and `ce-brainstorm` share the same `peer-job-runner.py` plumbing for a *different* feature — dispatching one reasoning-heavy step to a user-chosen model (`references/reasoning-elevation.md`). It is **not** cross-model peer review: it never routes to Codex, Cursor, or Grok, its only off-host adapter is the `claude` CLI, and it is off unless `plan_model` / `brainstorm_model` is set or the prompt explicitly asks for it. It was left alone because it is out of scope for "stop shipping code to Codex/Cursor" — but it *can* invoke an external CLI, so disable it too by leaving those config keys unset if you want a strictly no-egress checkout.
+
+**Re-enabling** means reverting the prose gates in the files listed in the conflict table below — there is no runtime switch, deliberately. Upstream's own `CROSS_MODEL_MAX_PEERS=0` env var also stops `ce-code-review` and `ce-doc-review` at the worker (before any egress), but it does not cover `ce-pov` or `ce-work`, which is why the fork gates in prose instead.
 
 ## What This Fork No Longer Does
 
 Earlier versions of this fork removed Rails, Ruby, and Python components (`dhh-rails-reviewer`, `kieran-rails-reviewer`, `kieran-python-reviewer`, `dhh-rails-style`, `andrew-kane-gem-writer`, `dspy-ruby`). **Upstream has since removed all of them itself**, so those deletions are no longer fork customizations and require no maintenance.
 
-The fork also previously carried its own reviewer personas (`brandon-aldrich-reviewer`, `jeremy-gillick-reviewer`, a combined `quality-reviewer`) and an `agent_review` command. These were dropped during the July 2026 sync — upstream's persona set and `ce-code-review` dispatch supersede them.
+The fork also previously carried its own reviewer personas (`brandon-aldrich-reviewer`, `jeremy-gillick-reviewer`, a combined `quality-reviewer`) and an `agent_review` command. `brandon-aldrich-reviewer`, `jeremy-gillick-reviewer`, and `agent_review` were dropped during the July 2026 sync — upstream's persona set and `ce-code-review` dispatch supersede them.
+
+The combined `quality-reviewer` is the exception: it came back as a skill-local prompt asset at `skills/ce-quick-review/references/personas/quality-reviewer.md`, since `ce-quick-review` is the reason that persona exists (one subagent covering maintainability *and* testing, instead of upstream's two). Its confidence calibration was rewritten for upstream's anchored 0/25/50/75/100 rubric; the old 0.0-1.0 float scale is gone from the codebase.
+
+### The `ce-quick-review` loss and restore
+
+`quick-review` was a fork skill at `plugins/compound-engineering/skills/quick-review/` that the July 2026 layout sync silently dropped — the merge renamed `plugins/compound-engineering/skills/` to `skills/`, and a fork skill with no upstream counterpart did not survive the rename. Because the loss happened inside the merge, `git log -- '*quick-review*'` shows no deletion commit; the skill is still present on the pre-sync `main`.
+
+It was restored onto the root-native layout rather than reverted verbatim: upstream's review substrate had moved (anchored integer confidence, `autofix_class` without `safe_auto`, `owner` without `review-fixer`, personas that defer to the subagent template's rubric), so a verbatim restore would have shipped a skill contradicting its own schema. The restored skill keeps the original's shape — fixed 3-agent roster, report-only, single merged report — on current parts.
+
+**Watch for this failure mode on the next sync.** Any fork skill can vanish the same way if upstream moves paths again. After a sync, verify the fork surface with the commands under "After Syncing" below rather than assuming a clean merge preserved it.
 
 ## Upstream Layout Change (July 2026)
 
@@ -85,8 +116,35 @@ Take upstream's side by default. The fork's surface is small and deliberate; any
 | `README.md` | Take upstream's content, then re-point install paths to `JuanCaicedo/...` and keep the fork notice near the top. |
 | `AGENTS.md` / `CLAUDE.md` | Take upstream. `CLAUDE.md` must stay a symlink to `AGENTS.md`. |
 | `skills/ce-plan/SKILL.md` | Take upstream, then re-apply the `ft-<ticket>` naming (two spots: Phase 3.1 file naming, and the save-path block). |
+| `tests/release-metadata.test.ts` | Asserts a hardcoded skill count. Take upstream's number and add the fork's skill count on top — do not revert to the upstream literal. |
+| Any cross-model gate (see table below) | Take upstream's content, then re-apply the fork's disable gate. Never accept an upstream hunk that restores a peer dispatch, route resolution, or egress announcement. |
 | A fork skill | Fork-owned; keep the fork's version. |
 | Anything else | Take upstream. |
+
+#### Upstream-owned files carrying a fork edit
+
+Expect each of these to conflict whenever upstream touches it. Every other fork change lives in fork-owned files.
+
+| File | Fork edit |
+|---|---|
+| `.gitattributes` | `eol=lf` pin for the fork's extensionless scripts |
+| `tests/release-metadata.test.ts` | Skill count (upstream's number plus the fork's 3) |
+| `skills/ce-code-review/SKILL.md` | Cross-model disable gate (execution spine step 3, Stage 3d) |
+| `skills/ce-code-review/references/{dispatch-reviewers,finish-review,persona-catalog}.md` | Peer fold-in, promotion, and Coverage wording reconciled to in-process only |
+| `skills/ce-doc-review/SKILL.md` | Cross-model judgment pass disabled |
+| `skills/ce-doc-review/references/synthesis-and-presentation.md` | Header note marking the peer rules inert |
+| `skills/ce-pov/SKILL.md` | Panel disabled; description and `argument-hint` reconciled |
+| `skills/ce-pov/references/invocation.md` | `oracle` / named-peer wording reconciled |
+| `skills/ce-work/SKILL.md` | Cross-model engine and `implementation_run:` recovery disabled |
+| `skills/ce-work/references/{execution-engines,implementation-loop}.md` | Engine removed from selection |
+| `skills/*/references/cross-model-*.md` | `DISABLED IN THIS FORK` banner |
+| `skills/ce-setup/references/config-template.yaml` + `.compound-engineering/config.local.example.yaml` | `cross_model_peer` and `work_engine_*` marked inert (keep the two byte-identical) |
+| `docs/skills/configuration.md` | Same two rows marked inert |
+| `tests/pov-skill-contract.test.ts` | 4 panel tests rewritten to pin the disabled contract |
+| `tests/skills/task-visibility-contract.test.ts` | Peer-task test rewritten to pin no-egress |
+| `tests/skills/ce-work-outcome-spine.test.ts` | 6 engine/recovery tests rewritten to pin native-only execution |
+
+If an upstream sync adds a **new** cross-model surface, it arrives ungated — the gates above are prose, not a switch, so nothing stops a newly added path. Grep for it after every sync (see "After Syncing").
 
 ### Versions
 
@@ -104,8 +162,18 @@ jq . .claude-plugin/plugin.json
 Then confirm the fork surface survived:
 
 ```bash
-ls skills/ | grep -E 'ce-(resolve-mr-feedback|generate-review-guide)'
+ls skills/ | grep -cE 'ce-(resolve-mr-feedback|generate-review-guide|quick-review)'   # expect 3
 grep -c 'ft-<ticket>' skills/ce-plan/SKILL.md   # expect 2 or more
+grep -rlc 'disabled in this fork' skills/ce-code-review/SKILL.md skills/ce-doc-review/SKILL.md skills/ce-pov/SKILL.md skills/ce-work/SKILL.md   # expect all 4
+```
+
+A count below 3 means the sync dropped a fork skill — recover it from the pre-sync commit, not from upstream.
+
+A missing disable gate means the sync reverted one; re-apply it before running anything that reviews code. Then check whether upstream added a **new** egress path the gates do not cover:
+
+```bash
+git diff HEAD@{1} --stat -- 'skills/**/cross-model*' 'skills/**/peer-job-runner.py'
+grep -rln 'cross-model\|CROSS_MODEL' skills/ | cut -d/ -f2 | sort -u   # any skill not in the disabled table above is ungated
 ```
 
 ## Contact

@@ -33,9 +33,12 @@ describe("task visibility contract", () => {
     expect(skills.work).toMatch(/full unit list is visible.*do not repeat ordinal counts/s)
   })
 
-  test("code review surfaces only a cross-model pass that actually started", () => {
-    expect(skills.codeReview).toMatch(/job ID is returned.*distinct task.*cross-model adversarial review/s)
-    expect(skills.codeReview).toMatch(/Never create this task before a peer starts/)
+  // Fork delta (see FORK.md): cross-model review is disabled, so there is no peer
+  // task to surface. Guard that the skill refuses egress instead.
+  test("code review never surfaces or starts a cross-model pass", () => {
+    expect(skills.codeReview).toMatch(/Cross-model peer review is disabled in this fork/)
+    expect(skills.codeReview).toMatch(/Never start a peer job/)
+    expect(skills.codeReview).not.toMatch(/Never create this task before a peer starts/)
   })
 
   test("lfg yields task-surface ownership to child skills and refreshes on return", () => {

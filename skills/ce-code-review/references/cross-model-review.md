@@ -1,5 +1,10 @@
 # Cross-Model Adversarial Pass
 
+> **DISABLED IN THIS FORK.** Cross-model peer review is turned off (see FORK.md): no code, diff,
+> document, or file content is sent to an external model. This file is retained only so upstream
+> merges apply cleanly. Do not follow its instructions, resolve a route, or execute the peer
+> scripts it references. The calling skill's in-process path is the only route.
+
 Runs the **adversarial** review through one separately routed model target in a read-only process. The peer gets the **same** `references/personas/adversarial-reviewer.md` brief the in-process reviewer uses, returns the same `findings-schema.json` shape, and folds into Stage 5 as reviewer `adversarial-<provider>`. It counts as independent corroboration and can promote agreement only when its receipt records `independence_verified: true`; otherwise it remains attributed review evidence without a promotion bonus.
 
 This pass is **adversarial-only**. No other persona gets a cross-model twin, and there is no whole-diff generalist peer. Cost stays gated on the existing Stage 3 adversarial selection.

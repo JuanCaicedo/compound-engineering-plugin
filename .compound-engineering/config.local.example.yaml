@@ -103,10 +103,10 @@
 
 # plan_skip_scoping_confirm: true   # true | false (default: false)
 
-# --- Cross-model review preference ---
-# Preferred peer for ce-doc-review and ce-code-review when their conditional
-# cross-model pass activates. Conversation instructions still win, and the
-# skills skip routes that cannot establish the required host/peer distinction.
+# --- Cross-model review preference (DISABLED IN THIS FORK) ---
+# Cross-model peer review is turned off fork-wide (see FORK.md): ce-code-review,
+# ce-doc-review, and ce-pov never send code, diffs, or documents to an external
+# model. This key is inert -- setting it does not re-enable the pass.
 
 # cross_model_peer: codex          # codex | claude | grok | cursor | composer
 
@@ -122,6 +122,8 @@
 # or commands here. A candidate equivalent to the current host/default is skipped;
 # a different explicit model in the same harness remains eligible.
 
+# DISABLED IN THIS FORK (see FORK.md): cross-model execution is not selectable,
+# so these two keys are inert -- ce-work always implements natively.
 # work_engine_mode: prefer        # off | prefer | require (default: off)
 # work_engine_preferences:
 #   - harness: cursor

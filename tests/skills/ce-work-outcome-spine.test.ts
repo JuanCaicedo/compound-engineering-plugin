@@ -58,11 +58,14 @@ describe("ce-work native characterization", () => {
     expect(triage).toContain("**Recovery activation comes first.**")
     expect(triage).toContain("resume, inspect status, reap, or clean up")
     expect(triage).toContain("implementation_run:<safe-id>")
-    expect(triage).toContain("read `references/cross-model-execution.md`")
-    expect(triage).toContain("must not dispatch a new worker")
-    expect(triage).toContain("completed recovery is read-only reconciliation")
-    expect(triage).toContain("Do not rerun test, build, format, install, generation, or `verify-run`")
-    expect(triage).toContain("report the stored unit and plan-wide verification receipts")
+    // Fork delta (see FORK.md): external-run recovery is disabled, since resuming
+    // reopens the egress channel. Recovery intent must still be RECOGNIZED first
+    // (so the user is told, rather than having the ask silently reclassified as
+    // new work) -- it just refuses instead of loading the controller protocol.
+    expect(triage).toContain("External-run recovery is disabled in this fork")
+    expect(triage).toContain("Do not read `references/cross-model-execution.md`")
+    expect(triage).toContain("do not dispatch a worker")
+    expect(triage).toContain("Do not silently reclassify the request as new work")
     expect(triage.indexOf("**Recovery activation comes first.**")).toBeLessThan(triage.indexOf("**Otherwise, parse a leading mode token.**"))
   })
 
@@ -91,14 +94,16 @@ describe("ce-work native characterization", () => {
     expect(dispatch).toContain("Review, test, and commit each unit in dependency order — the orchestrator owns commits")
   })
 
-  test("does not re-enter native dispatch after selecting cross-model execution", async () => {
+  // Fork delta (see FORK.md): cross-model execution is disabled, so there is no
+  // controller lock or re-entry hazard left to guard -- only that dispatch stays
+  // native and nothing egresses.
+  test("dispatch stays native and never egresses", async () => {
     const skill = await readRepoFile("skills/ce-work/SKILL.md")
     const engineGate = sliceSection(skill, "4. **Choose Execution Engine, then Strategy**", "### Phase 2: Execute")
 
     expect(engineGate).toContain("**Native dispatch (inline/subagent engines only)**")
-    expect(engineGate).toContain("must not re-enter this ordinary subagent dispatch")
-    expect(engineGate).toContain("**A successful controller `init` locks that unit to the selected cross-model engine.**")
-    expect(engineGate).toContain("Never reclassify it as trivial, abandon it for speed, or implement it natively")
+    expect(engineGate).toContain("No repository content, plan, brief, or unit packet ever leaves the machine")
+    expect(engineGate).toContain("Cross-model execution is disabled in this fork")
     expect(engineGate).toContain("**After each serial inline/subagent unit:**")
     expect(engineGate).toContain("**After a parallel inline/subagent batch")
   })
@@ -122,47 +127,36 @@ describe("ce-work cross-model engine contract", () => {
     const engines = await readRepoFile("skills/ce-work/references/execution-engines.md")
     const engineGate = sliceSection(skill, "4. **Choose Execution Engine, then Strategy**", "### Phase 2: Execute")
 
-    expect(engineGate).toContain("cross-model execution")
-    expect(engineGate).toContain("native execution remains the default")
+    expect(engineGate).toContain("Cross-model execution is disabled in this fork and is never selectable")
+    expect(engineGate).toContain("native inline/subagent is the default")
     expect(engineGate).toContain("Route resolution is a mandatory pre-write gate")
     expect(engineGate).toContain(".compound-engineering/config.local.yaml")
-    expect(engineGate).toContain("Do not infer native execution merely because no typed carrier was supplied")
     expect(engines).toContain("still-active session")
     expect(engines).toContain("active instructions and conventions already in context")
     expect(engines).toContain("recorded provenance")
     expect(engines).toMatch(/incidental mentions/i)
     expect(engines).toContain("work_engine_mode")
-    expect(engines).toContain("`off | prefer | require`")
     expect(engines).toContain("work_engine_preferences")
-    expect(engines).toContain("`harness`")
-    expect(engines).toContain("optional `model`")
     expect(engines).toContain("configured default")
     expect(engines).toContain("ordered candidate")
     expect(engines).toContain("continue to the next candidate")
     expect(engines).toContain("equivalent to the current host")
-    expect(engines).toContain("`off` disables only the standing preference")
-    expect(engines).toContain("strict Composer")
-    expect(engines).toContain("caller Codex")
-    expect(engines).toContain("config Cursor")
+    // Fork delta (see FORK.md): the external engine is off, whatever config says.
+    expect(engines).toContain("Cross-model execution is disabled in this fork")
+    expect(engines).toContain("Not selectable under any configuration")
   })
 
-  test("turns clear planless work into a private bounded source without exporting the session", async () => {
+  // Fork delta (see FORK.md): nothing is exported, so there is no bounded brief
+  // to build. Unclear planless work still routes to planning rather than being
+  // handed to a worker to invent scope for.
+  test("unclear planless work routes to planning instead of a worker", async () => {
     const skill = await readRepoFile("skills/ce-work/SKILL.md")
     const engines = await readRepoFile("skills/ce-work/references/execution-engines.md")
-    const external = await readRepoFile("skills/ce-work/references/cross-model-execution.md")
 
-    expect(skill).toContain("private **bounded implementation brief**")
-    expect(skill).toContain("Do not send raw conversation history")
-    expect(skill).toContain("clarify or route to `ce-plan` before any cross-model egress")
+    expect(skill).toContain("clarify or route to `ce-plan` before implementing")
+    expect(skill).toContain("No repository content, plan, brief, or unit packet ever leaves the machine")
     expect(engines).toContain("Invocation origin supplies no routing authority")
-    expect(engines).toContain("concrete goal, bounded scope, and authoritative verification")
-    expect(external).toContain("## Build a source for bare-prompt work")
-    for (const heading of ["Request", "Goal", "Scope", "Acceptance and verification", "Constraints and exclusions", "Units"]) {
-      expect(external).toContain(`\`${heading}\``)
-    }
-    expect(external).toContain("one conservative `P1` unit by default")
-    expect(external).toContain("--prompt-brief <temp-path> --prompt-digest <sha256>")
-    expect(external).toContain("Prompt-backed runs require their disclosed run id")
+    expect(engines).toContain("External routes are never eligible")
   })
 
   test("uses agent judgment above fixed safety boundaries when local harness CLIs drift", async () => {
@@ -185,9 +179,10 @@ describe("ce-work cross-model engine contract", () => {
     expect(triage).toContain("Every non-recovery code path must resolve its implementation engine before execution")
     expect(triage).toContain("carrierless Return-to-Caller Mode")
     expect(triage).toContain(".compound-engineering/config.local.yaml")
-    expect(triage).toContain("pre-controller discovery is read-only")
-    expect(triage).toContain("Do not run baseline, test, build, format, install, or generation commands")
-    expect(triage).toContain("prove the canonical Git snapshot is byte-for-byte unchanged")
+    // Fork delta (see FORK.md): no external controller, so no pre-controller
+    // read-only window -- an external binding is refused outright instead.
+    expect(triage).toContain("is **not honored in this fork")
+    expect(triage).toContain("Do not initialize the external controller")
   })
 
   test("keeps the caller carrier implementation-only and exactly four fields", async () => {
@@ -291,15 +286,18 @@ describe("ce-work cross-model engine contract", () => {
     expect(protocol).toContain("never broaden")
   })
 
-  test("loads the cross-model protocol only for selected execution or recovery", async () => {
+  // Fork delta (see FORK.md): the protocol is never loaded, for execution or for
+  // recovery. Every surviving mention must be a prohibition.
+  test("never loads the cross-model protocol", async () => {
     const skill = await readRepoFile("skills/ce-work/SKILL.md")
     const engineGate = sliceSection(skill, "4. **Choose Execution Engine, then Strategy**", "### Phase 2: Execute")
     const triage = sliceSection(skill, "### Phase 0: Input Triage", "**Plan document**")
 
-    expect(engineGate).toContain("If and only if cross-model execution is selected")
-    expect(engineGate).toContain("read `references/cross-model-execution.md`")
-    expect(triage.match(/references\/cross-model-execution\.md/g)?.length).toBe(2)
-    expect(skill.match(/references\/cross-model-execution\.md/g)?.length).toBe(3)
+    expect(engineGate).toContain("Never read `references/cross-model-execution.md`")
+    expect(triage).toContain("Do not read `references/cross-model-execution.md`")
+    for (const mention of skill.split("\n").filter((l) => l.includes("references/cross-model-execution.md"))) {
+      expect(mention).toMatch(/Never read|Do not read/)
+    }
   })
 
   test("returns requested and actual route, model, fallback, run, unit, blocker, and recovery receipts", async () => {

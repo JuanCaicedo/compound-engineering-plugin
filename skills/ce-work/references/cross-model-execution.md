@@ -1,5 +1,10 @@
 # Cross-Model Execution Contract
 
+> **DISABLED IN THIS FORK.** Cross-model peer review is turned off (see FORK.md): no code, diff,
+> document, or file content is sent to an external model. This file is retained only so upstream
+> merges apply cleanly. Do not follow its instructions, resolve a route, or execute the peer
+> scripts it references. The calling skill's in-process path is the only route.
+
 Load this reference only after the cross-model engine is selected or recovery of an existing external run is activated. It defines the fixed-route, authority, fallback, identity, receipt, and serial transaction contract. The host drives the bundled controller, detached runner, and adapter; no worker response or process exit can substitute for controller and Git evidence.
 
 ## Resolve one requested route

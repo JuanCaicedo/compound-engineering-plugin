@@ -1,5 +1,10 @@
 # Cross-Model Judgment Pass
 
+> **DISABLED IN THIS FORK.** Cross-model peer review is turned off (see FORK.md): no code, diff,
+> document, or file content is sent to an external model. This file is retained only so upstream
+> merges apply cleanly. Do not follow its instructions, resolve a route, or execute the peer
+> scripts it references. The calling skill's in-process path is the only route.
+
 Runs ce-doc-review's **conditional judgment lenses** through one separately routed model target in read-only, least-privilege processes. Each peer gets the **same** persona brief the in-process reviewer uses, returns the same `findings-schema.json` shape, and folds into synthesis as reviewer `<reviewer-name>-<provider>`. It counts as independent corroboration and can promote agreement only when its receipt records `independence_verified: true`; otherwise it remains attributed review evidence without a promotion bonus.
 
 The trio is the three **conditional** judgment lenses whose output diverges most across model families: `adversarial-document-reviewer`, `product-lens-reviewer`, `security-lens-reviewer`. The convergent lenses (`coherence`, `scope-guardian`) and the always-on `feasibility` lens do **not** run cross-model — feasibility is excluded specifically so the pass stays conditional and does not spawn on every review.

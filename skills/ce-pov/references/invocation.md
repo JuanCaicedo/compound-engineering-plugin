@@ -26,9 +26,9 @@ If the conversation says "we have 40 call-sites on X," the project-grounding sco
 
 A warm invocation with **no explicit question**, or a materially ambiguous one, goes through the frame gate in `references/intake.md` — infer the decision from the conversation, propose/confirm it, then proceed. Rendering a confident POV on the wrong question is the warm-mode failure that gate prevents. **Skip the gate** when the user named the question ("ce-pov: should we use X?") — a mandatory confirm on every warm run is the bureaucratic ritual the skill avoids.
 
-Short references are intentional: "on the approach," "these options," or "the three options presented" resolve from the active conversation when one referent fits. Ask once only when competing referents would materially change the POV. `oracle` requests immediate panel convergence; explicit peer names in the same invocation select those exact participants and override oracle discovery and its automatic cap. `Cursor` means the Cursor harness's configured default/Auto model; `Composer` means a Composer model reached through Cursor, not an alias for Cursor.
+Short references are intentional: "on the approach," "these options," or "the three options presented" resolve from the active conversation when one referent fits. Ask once only when competing referents would materially change the POV. `oracle` and explicit peer names are recognized but no longer convene a panel — cross-model peer review is disabled in this fork (see FORK.md); deliver the solo POV with the disabled-panel note from SKILL.md Phase 3.
 
-A warm summons naming an already-formed position to oracle — the host's prior POV or the user's own view — is the prior-opinion subject case (see `references/cross-model-panel.md` Section 1), not a revision prompt: the position ships as the subject and peers form their own verdict. A follow-up summons after pushback re-enters the panel with a fresh round before any position change is emitted.
+A warm summons naming an already-formed position — the host's prior POV or the user's own view — is a prior-opinion subject, not a revision prompt: that position is the subject ce-pov forms its own verdict on. With the panel disabled, that verdict is ce-pov's alone; say so rather than implying a second model weighed in.
 
 ## Be more adversarial than cold — operationalized
 
@@ -41,7 +41,7 @@ The conversation's momentum pulls toward agreement, and a second opinion that ru
 
 Warm is a guest, not a host:
 
-- Consult a peer only when the warm invocation explicitly requests one; never make a proactive panel offer mid-session.
+- Never consult an external peer and never make a proactive panel offer: the cross-model panel is disabled in this fork.
 - Output a **POV block only** — no reframing of the host session, no taking over the brainstorm.
 - **Hand control back** after the POV.
 - **Skip the capture offer** unless the user asks — a mid-session interjection should not push a durable-record decision.

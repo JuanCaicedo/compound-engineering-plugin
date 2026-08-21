@@ -1,5 +1,12 @@
 # Phases 3-5: Synthesis, Presentation, and Next Action
 
+> **Cross-model peer rules below are inert in this fork.** The cross-model judgment pass is disabled
+> (see FORK.md), so no `<reviewer-name>-<provider>` return ever reaches synthesis. Every rule keyed to
+> a peer return — the twin fingerprint exception (3.3), independence-verified agreement promotion
+> (3.4), the peer autofix cap (3.6), and the peer safeguard (3.7) — simply never fires. They are kept
+> verbatim so upstream merges apply cleanly. Treat all reviewers as in-process, and never describe a
+> finding as cross-model corroborated.
+
 ## Phase 3: Synthesize Findings
 
 Process findings from all agents through this pipeline. Order matters — each step depends on the previous. The pipeline implements the finding-lifecycle state machine: **Raised → (Confidence Gate | FYI-eligible | Dropped) → Deduplicated → Classified → SafeAuto | GatedAuto | Manual | FYI**. Re-evaluate state at each step boundary; do not carry forward assumptions from earlier steps as prose-level shortcuts.

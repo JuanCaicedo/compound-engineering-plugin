@@ -1,5 +1,10 @@
 # Cross-Model CE Work Behavioral Eval
 
+> **DISABLED IN THIS FORK.** Cross-model peer review is turned off (see FORK.md): no code, diff,
+> document, or file content is sent to an external model. This file is retained only so upstream
+> merges apply cleanly. Do not follow its instructions, resolve a route, or execute the peer
+> scripts it references. The calling skill's in-process path is the only route.
+
 Use this evaluator-owned pack after a material change to CE Work's cross-model
 execution contract. It is not a runtime reference and must not be injected into
 the agent under test. Inject the current `SKILL.md` plus only the runtime

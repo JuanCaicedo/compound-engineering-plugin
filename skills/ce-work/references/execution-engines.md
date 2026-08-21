@@ -1,14 +1,16 @@
 # Execution Engines
 
-`ce-work` has four implementation engines: inline/subagent, goal-mode, dynamic-workflow, and cross-model execution. The engine decides *how* implementation runs; it never changes *who* owns the shipping tail (see "Tail ownership" below). Native inline/subagent execution is dormant-by-default compatibility: it remains selected unless applicable live intent, a caller binding, or an enabled standing preference selects the fourth engine.
+`ce-work` has three selectable implementation engines: inline/subagent, goal-mode, and dynamic-workflow. The engine decides *how* implementation runs; it never changes *who* owns the shipping tail (see "Tail ownership" below). Inline/subagent is the default and remains selected unless applicable live intent or a caller binding selects goal-mode or dynamic-workflow.
 
-Engine selection applies only to code execution. Knowledge-work keeps its carve-out. Legacy plans and bare code prompts may select cross-model execution, but otherwise retain the inline/subagent flow in `SKILL.md`; goal-mode and dynamic-workflow selection remains specific to implementation-ready unified plans.
+> **Cross-model execution is disabled in this fork (see FORK.md).** A fourth engine once routed bounded implementation units to an external harness. It is no longer selectable: no repository content, plan, prompt brief, or unit packet is sent to an external model, whatever `work_engine_mode`, `work_engine_preferences`, a caller binding, or live intent request. `cross-model-execution.md` and `scripts/cross-model-work.sh` remain on disk for upstream-merge fidelity only — never read or execute them.
+
+Engine selection applies only to code execution. Knowledge-work keeps its carve-out. Legacy plans and bare code prompts retain the inline/subagent flow in `SKILL.md`; goal-mode and dynamic-workflow selection remains specific to implementation-ready unified plans.
 
 Invocation origin supplies no routing authority and may not be detectable. Resolve the same inputs whether `ce-work` was explicitly invoked or selected by the host: current-task intent, still-active session intent, typed caller binding, active project instructions, enabled checkout configuration, then native execution.
 
-## Resolve cross-model routing before the capability probe
+## Resolve the implementation binding before the capability probe
 
-Resolve one implementation binding from applicable authority and scope; do not reduce routing to keyword matching or a closed state machine. Obey the host's instruction hierarchy first. Within the same authority, prefer narrower and more current intent, using these sources:
+Resolve one implementation binding from applicable authority and scope; do not reduce routing to keyword matching or a closed state machine. Obey the host's instruction hierarchy first. External routes are never eligible — resolve only among the native engines. Within the same authority, prefer narrower and more current intent, using these sources:
 
 1. an explicit assignment or constraint in the current task;
 2. a still-active session preference or constraint;
@@ -80,7 +82,7 @@ An engine is usable only when the host exposes a callable primitive for it. Do n
 | **Inline / subagent** | Always. The orchestrator runs units inline or dispatches subagents via the platform's subagent primitive (`Agent`/`Task` in Claude Code, `spawn_agent` in Codex, `subagent` in Pi). | Always callable in-session. This is the default. |
 | **Goal-mode** | The host exposes a callable goal *tool* a skill can invoke — e.g. Codex `create_goal` (sets **and activates** a persistent objective for the current session) plus `update_goal(complete\|blocked)` for terminal status. | **No goal tools exposed.** `/goal` is a top-level user command only; a skill cannot invoke it or any goal tool. Emit a copyable `/goal` prompt for the user to paste, or run inline/subagents. **Codex differs — it does expose `create_goal` (see below).** |
 | **Dynamic-workflow** | The host exposes a callable dynamic-workflow / ultracode-style orchestration primitive that returns structured results and blockers without mid-run user decisions. | **Not callable from inside a skill.** Dynamic workflows start from a user prompt (`ultracode:` or `/effort ultracode`). `ce-work` can only emit a copyable prompt block. |
-| **Cross-model execution** | A resolved fixed route has a qualified, write-capable adapter and satisfies every caller restriction. Load `cross-model-execution.md` only after this engine is selected. | Availability depends on the installed target CLI and its qualified adapter, not on the host's native subagent tools. A same-host default request collapses to native execution. |
+| **Cross-model execution** | **Never — disabled in this fork (see FORK.md).** | Not selectable under any configuration. A request for it collapses to native execution with a one-line note that external implementation is disabled. |
 
 Rule of thumb: **probe for the callable tool, don't infer from the command's existence.** If the host exposes a callable goal tool (Codex `create_goal`), goal-mode is a real callable engine — use it. If it exposes only a user-typed `/goal` (Claude Code), goal-mode is prompt-emission only — emit a copyable prompt. The literal `/goal` slash command is not skill-invocable on any host; the *tool* path is what makes Codex callable.
 
@@ -95,9 +97,7 @@ When more than one engine is callable, choose by the plan's decomposition shape:
 | Sequential or modest U-ID decomposition; units share files or depend on each other | **Inline / subagent** (default), or a **goal-mode** prompt for sustained focus when callable | The DoD already defines the end condition; ordinary persistence finishes it. |
 | Many independent U-IDs with disjoint file ownership; codebase-wide sweep; large migration; adversarial cross-checking | **Dynamic-workflow** when callable; otherwise parallel subagents | Workflow scripts hold branching, loops, and intermediate worker state outside the main context and coordinate many agents. Prefer this over goal-mode for large fan-out. |
 | Host exposes no callable goal/workflow primitive (e.g. Claude Code in-session) | **Inline / subagent** | Preserve the same heading-scan / DoD / U-ID discipline without relying on unavailable host features. |
-| Applicable live intent, a caller binding, or enabled config resolves a qualified fixed external route | **Cross-model execution** | Another harness/model authors bounded units while the host retains canonical integration, verification, commits, and tail ownership. |
-
-For a bare prompt, cross-model execution is eligible only after Phase 0 has established a concrete goal, bounded scope, and authoritative verification. The cross-model reference turns that discovery into a private prompt brief and conservative P-unit packet. An unclear bare prompt returns to clarification/planning before egress; it does not fall through to a smarter external worker and ask that worker to invent the scope.
+| Live intent, a caller binding, or config requests an external route | **Inline / subagent** | Cross-model execution is disabled in this fork; fall back to native execution and say so in one line rather than silently ignoring the request. |
 
 Recommend exactly one path. Present a non-default engine as an "advanced / large-scale option" only when the plan shape plausibly warrants it — never as an equal coin-flip.
 
@@ -107,9 +107,9 @@ Recommend exactly one path. Present a non-default engine as an "advanced / large
 
 Follow the dispatch strategy in `SKILL.md` Phase 1 Step 4 (inline, serial subagents, or parallel subagents) and the Phase 2 execution loop. `ce-work` owns task creation, unit sequencing, dispatch, verification, and commits.
 
-### Cross-model execution
+### Cross-model execution — disabled
 
-Read `cross-model-execution.md` only after routing selects this engine. Resolve and disclose its fixed recipient and restrictions before egress, then follow its serial external-unit transaction through the bundled controller, detached runner, and fixed adapter. If the route is unavailable at preflight, apply the preference/requirement behavior defined there; never let the detached worker select a fallback recipient.
+Not a runnable engine in this fork. Never read `cross-model-execution.md`, never start the controller or runner, and never let repository content reach an external recipient. If routing inputs ask for it — including `work_engine_mode: require` — run inline/subagent instead and state in one line that external implementation is disabled here, so a blocked-looking run is never mistaken for a route failure.
 
 ### Goal-mode and dynamic-workflow
 

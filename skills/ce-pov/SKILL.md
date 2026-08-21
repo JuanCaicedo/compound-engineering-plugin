@@ -1,7 +1,7 @@
 ---
 name: ce-pov
-description: "Give a decisive, project-grounded point of view in the subject's own shape: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a user-supplied approach set. Use for a solo POV, a mid-session second opinion, a named-peer cross-check, any request to consult other models or reconcile their opinions, an `oracle` panel, or a correction-cost-gated proactive cross-check offer. Not for findings review (use ce-doc-review), neutral explainers, or generating options (use ce-ideate or ce-brainstorm)."
-argument-hint: "[adoption question, document, or supplied approaches] [compare/cross-check with peers or oracle] — or invoke bare mid-session"
+description: "Give a decisive, project-grounded point of view in the subject's own shape: a graded verdict on an external-adoption question, a holistic take on a document, or a position on a user-supplied approach set. Use for a solo POV or a mid-session second opinion. Cross-model peer panels are disabled in this fork, so a request to consult other models still gets a solo POV plus a note that no peer ran. Not for findings review (use ce-doc-review), neutral explainers, or generating options (use ce-ideate or ce-brainstorm)."
+argument-hint: "[adoption question, document, or supplied approaches] — or invoke bare mid-session"
 ---
 
 # Form a Point of View
@@ -120,13 +120,11 @@ echo "$SCRATCH_DIR";
 
 ### Phase 3: Point of View
 
-First form ce-pov's own independent POV under the active subject-shape contract in `references/method.md`, but do not emit it yet. Freeze that position so peer feedback cannot shape its first draft. Keep it out of an independent peer's initial context; expose it only when the requested task is to critique that position or when a later reconciliation round compares already-formed views.
+Form ce-pov's own independent POV under the active subject-shape contract in `references/method.md`.
 
-When a panel is named or summoned, or when a cold POV may qualify for a proactive offer, read
-`references/cross-model-panel.md` before resolving participation or deciding whether to offer.
-A summons is detected by reasoning over the invocation context — the user's wording or a calling skill's args — so a caller's paraphrase in one channel never cancels a summons still present in another; only a summons erased from every readable channel upstream is unrecoverable here.
-Invoking a named peer, an explicit cross-check, or `oracle` authorizes the panel protocol's normal read-only consultation against this project. Announce the selected peers before dispatch; ask only when a retry adds an unexpected recipient or intermediary, or an active instruction requires separate approval. Peers inspect the shared working tree directly and cannot edit it. The panel protocol preserves an unbiased initial round, bounds evidence-based reconciliation while honoring user-supplied pass limits, and attributes only receipt-supported independence.
-Resolve and finish the panel branch, including any fold-in or reconciliation, before composing the user-facing result. Any POV delivered after a summons states which peers ran, or that none did and the observed reason; if no panel runs after a summons, keep the verdict content unchanged but add that panel-status line rather than shipping a bare solo verdict. A POV with no summons keeps the solo result unchanged with no panel note.
+**The cross-model peer panel is disabled in this fork (see FORK.md).** Never run it: do not read `references/cross-model-panel.md`, do not resolve or announce peers, do not dispatch a panel job, and never send the subject, the working tree, or any project content to an external model. Never make a proactive cross-check offer.
+
+Always produce the solo POV. When the user names a peer, asks for a cross-check, or summons `oracle`, do not silently ignore it and do not substitute a self-critique pass dressed up as a second opinion — deliver the solo POV unchanged and add one line stating that cross-model consultation is disabled in this fork, so the verdict carries a single model's judgment. A reader must never mistake this for peer-corroborated agreement.
 
 Only then emit the final contract for the active subject shape. For an external-adoption question, the existing grade vocabulary, schema fields, tier sizing, and output economy apply unchanged. A document take or approach-set position follows its own explicit contract. Every shape is a **compact chat block, not a research report**: lead with the grade, bottom line, or position named by its contract; keep each field terse; and never reprint scout dossiers or raw search output.
 

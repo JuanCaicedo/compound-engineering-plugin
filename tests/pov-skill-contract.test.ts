@@ -41,12 +41,18 @@ describe("ce-pov subject-shape contract", () => {
     expect(phaseOne).toMatch(/prior-decision scan.*stays mandatory on either path/)
   })
 
-  test("semantic cross-model requests activate without the oracle shorthand", async () => {
+  // Fork delta (see FORK.md): cross-model peer panels are disabled. The
+  // description must still mention consulting other models so the skill
+  // ACTIVATES on that ask -- silently not firing is the worse failure -- but it
+  // must say the panel is off and a solo POV is what comes back, so it never
+  // advertises a capability the fork removed.
+  test("description declines cross-model consultation while still activating on it", async () => {
     const skill = await skillFile("SKILL.md")
     const frontmatter = skill.split("---", 3)[1] ?? ""
 
     expect(frontmatter).toContain("consult other models")
-    expect(frontmatter).toContain("reconcile their opinions")
+    expect(frontmatter).toContain("disabled in this fork")
+    expect(frontmatter).toMatch(/solo POV/)
   })
 
   test("the always-loaded Phase 0 frame names the document and approach intents", async () => {
@@ -97,43 +103,44 @@ describe("ce-pov subject-shape contract", () => {
 })
 
 describe("ce-pov cross-model panel contract", () => {
-  test("loads the panel protocol before deciding whether to offer", async () => {
+  // Fork delta (see FORK.md): the panel is disabled. Phase 3 must forbid loading
+  // the protocol and forbid egress, rather than describing how to run a panel.
+  test("Phase 3 forbids the panel protocol and any egress", async () => {
     const skill = await skillFile("SKILL.md")
     const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Follow-up")
 
-    expect(phaseThree).toContain("may qualify for a proactive offer")
-    expect(phaseThree).toContain("before resolving participation or deciding whether to offer")
-    expect(phaseThree).toContain("authorizes the panel protocol's normal read-only consultation")
-    expect(phaseThree).toContain("Announce the selected peers before dispatch")
-    expect(phaseThree).toMatch(/ask only when a retry adds an unexpected recipient or intermediary/)
-    expect(phaseThree).toContain("shared working tree")
+    expect(phaseThree).toMatch(/disabled in this fork/)
+    expect(phaseThree).toMatch(/do not read `references\/cross-model-panel\.md`/)
+    expect(phaseThree).toMatch(/never send the subject, the working tree, or any project content/)
+    expect(phaseThree).toMatch(/Never make a proactive cross-check offer/)
   })
 
-  test("forms an independent solo POV before the panel and emits only after it finishes", async () => {
+  // Fork delta (see FORK.md): with no panel there is no freeze-then-reconcile
+  // ordering left to guard -- only that the POV is formed before it is emitted.
+  test("forms the independent POV before emitting it", async () => {
     const skill = await skillFile("SKILL.md")
     const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Follow-up")
 
-    const formSolo = phaseThree.indexOf("form ce-pov's own independent POV")
-    const runPanel = phaseThree.indexOf("finish the panel branch")
+    const formSolo = phaseThree.indexOf("Form ce-pov's own independent POV")
     const emitFinal = phaseThree.indexOf("Only then emit")
 
     expect(formSolo).toBeGreaterThan(-1)
-    expect(runPanel).toBeGreaterThan(formSolo)
-    expect(emitFinal).toBeGreaterThan(runPanel)
-    expect(phaseThree).toContain("Freeze that position")
-    expect(phaseThree).toMatch(/Keep it out of an independent peer's initial context/)
-    expect(phaseThree).toMatch(/critique that position|reconciliation round/)
+    expect(emitFinal).toBeGreaterThan(formSolo)
   })
 
-  test("discloses panel status after any summons even when no panel runs", async () => {
+  // Fork delta (see FORK.md): a peer summons must be answered honestly -- the
+  // solo POV plus an explicit disabled note, never silence and never a
+  // self-critique passed off as a second opinion.
+  test("a peer summons still gets the solo POV plus an explicit disabled note", async () => {
     const skill = await skillFile("SKILL.md")
     const panel = await skillFile("references/cross-model-panel.md")
     const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Follow-up")
 
-    expect(phaseThree).toContain("states which peers ran")
-    expect(phaseThree).toMatch(/caller's paraphrase in one channel never cancels/)
-    expect(phaseThree).toMatch(/no summons keeps the solo result unchanged with no panel note/)
-    expect(panel).toMatch(/summons was present but the panel branch never entered/)
+    expect(phaseThree).toMatch(/Always produce the solo POV/)
+    expect(phaseThree).toMatch(/do not silently ignore it/)
+    expect(phaseThree).toMatch(/self-critique pass dressed up as a second opinion/)
+    expect(phaseThree).toMatch(/never mistake this for peer-corroborated agreement/)
+    expect(panel).toMatch(/DISABLED IN THIS FORK/)
   })
 
   test("follow-up covers every subject shape while retaining adoption tier gates", async () => {
