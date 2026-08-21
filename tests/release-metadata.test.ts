@@ -189,12 +189,16 @@ async function makeFixtureRoot(): Promise<string> {
 }
 
 describe("release metadata", () => {
+  // Fork delta (see FORK.md): upstream ships 32 skills; this fork adds 3 —
+  // ce-resolve-mr-feedback, ce-generate-review-guide, and ce-quick-review.
+  // On an upstream sync that changes the skill count, take upstream's number
+  // and re-add the fork's 3 rather than reverting to the upstream literal.
   test("reports current compound-engineering counts from the repo", async () => {
     const counts = await getCompoundEngineeringCounts(process.cwd())
 
     expect(counts).toEqual({
       agents: 0,
-      skills: 32,
+      skills: 35,
       mcpServers: 0,
     })
   })
