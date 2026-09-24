@@ -19,6 +19,13 @@ A great plan enables three audiences to act:
 
 Sections earn their place by serving one of these audiences. Omit padding.
 
+**Write it in plain English.** All three audiences are engineers reading to
+understand the project — people who will execute the plan or review it, not
+parsers. Explain the work the way you would to a teammate picking it up: the
+team's own words for things, acronyms spelled out the first time, sentences that
+read correctly on the first pass. A plan that is technically complete but has to
+be decoded twice has failed the people it was written for.
+
 ## Unified plan artifact contract
 
 `ce-plan` writes the canonical compound-engineering plan artifact. The same
@@ -223,9 +230,36 @@ a section with placeholder prose is worse than omitting it.
   needs distinguishing from "outside the product's identity." Skip when scope
   is obvious from Requirements alone.
 
-- **Open Questions** — include when there are genuinely unresolved items that
-  block planning or implementation. Skip when the plan is complete; an empty
-  "Open Questions: none" section signals false uncertainty.
+- **Open Questions** — include only for a question you tried to answer and
+  could not, where the answer needs something you have no access to: a
+  preference only the user holds, a decision owned by someone outside the
+  session, information that does not exist yet. Every question earns its place
+  by surviving a **resolution pass** first — you go and try to settle it, and
+  it stays only if that fails.
+
+  Run the pass against each candidate, in this order. Any hit resolves the
+  question and it does not go in the section:
+
+  - **Read the code.** Conventions, breakpoints, helper names, which utility
+    the repo standardises on, how a sibling component already solves it. If
+    one call site pattern dominates, that is the answer. Grep before you ask.
+  - **Read the origin artifacts.** An approved spec, a Figma frame, a shipped
+    predecessor. A decision already made upstream is settled, and reopening it
+    as a question re-litigates work the user already signed off.
+  - **Pick the obvious default.** When one option is plainly better on the
+    merits (the accessible choice, the safe choice, the one matching the
+    surrounding code), take it and record it as a Key Technical Decision with
+    its reasoning. A choice you can defend in one sentence is a decision, not
+    a question.
+
+  A question that survives all three is real: write it with the default you
+  proceeded on, so the plan stays executable while the answer is outstanding.
+
+  Skip the section entirely when nothing survives — which is the common case
+  on a well-researched plan. An empty "Open Questions: none" signals false
+  uncertainty, and so does a section padded with questions you could have
+  answered: it pushes work back onto the reader and buries any question that
+  is genuinely theirs.
 
 - **System-Wide Impact** — include when the change affects cross-cutting
   concerns (data lifecycles, auth boundaries, performance posture, cardinal
