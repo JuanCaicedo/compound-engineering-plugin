@@ -28,7 +28,7 @@ fi
 - After completing a task during iterative implementation
 - When feedback is needed on any code changes
 - Can be invoked standalone
-- Can run inside larger workflows; use `mode:agent` when the caller needs JSON instead of markdown tables
+- Can run inside larger workflows; use `mode:agent` when the caller needs JSON instead of the markdown action list
 
 ## Artifact Root
 
@@ -50,7 +50,7 @@ Follow these boundaries in order; references supply the detail but never change 
 2. Read `references/persona-catalog.md`, then select the risk-driven reviewer roster and discover applicable standards paths. Do not select or dispatch personas without that catalog load.
 3. **Never send reviewed code, diffs, or file content to an external model.** Cross-model peer review is disabled in this fork (see FORK.md). When adversarial is selected, the in-process `adversarial-reviewer` always owns the lens — there is no peer job to start, no route to sanction, and no egress disclosure to make.
 4. Before any local dispatch, read `references/dispatch-reviewers.md`; if it is not loaded, stop and load it. Then dispatch the materialized local roster as a foreground concurrent batch sized to the host's active-agent cap — spawn multiple reviewers in one message with background execution off where the harness runs same-message calls concurrently, and collect every reviewer before synthesis (one blocking wait on Claude-style harnesses; repeated non-polling collection waits on async `spawn_agent` harnesses); degrade to serial where it does not. Detaching review into a polled background job is forbidden — with the cross-model peer disabled, no work in this skill is detached. Shell no-ops and wakeup polling are forbidden.
-5. After the reviewer returns are ready, read `references/finish-review.md`; if it is not loaded, stop and load it. Run the documented findings mechanics, run every validator the reference selects, and only then return the report. Never synthesize directly from raw reviewer artifacts. The exact Actionable Findings, Coverage, and Verdict completion fields are required. Coverage must state that review ran entirely on the local host with no cross-model corroboration, so a reader never mistakes single-model agreement for independent confirmation. In the multi-agent path, emit only this skill's report; do not also invoke a harness-native findings/reporting tool. The native review tool belongs only to the explicit Quick Review Short-Circuit. Bare and `mode:agent` reviews never apply fixes; only explicit `apply:local` can enter the apply stage.
+5. After the reviewer returns are ready, read `references/finish-review.md`; if it is not loaded, stop and load it. Run the documented findings mechanics, run every validator the reference selects, and only then return the report. Never synthesize directly from raw reviewer artifacts. The report is an action list: every surviving finding is an item that carries its own severity, `file:line`, reviewer(s), confidence, and route, and the markdown carries no Verdict, Coverage, or Learnings section. Record in the coverage artifact that review ran entirely on the local host with no cross-model corroboration, so a reader of that record never mistakes single-model agreement for independent confirmation. In the multi-agent path, emit only this skill's report; do not also invoke a harness-native findings/reporting tool. The native review tool belongs only to the explicit Quick Review Short-Circuit. Bare and `mode:agent` reviews never apply fixes; only explicit `apply:local` can enter the apply stage.
 
 Bundled helper contracts in the stage references are authoritative. Run the documented commands directly; do not inspect helper source, grep model mappings, dry-run adapters, or probe `--help` unless a documented command actually fails with an incompatibility.
 
@@ -64,7 +64,7 @@ Parse the arguments you were invoked with for optional tokens. Strip each recogn
 
 | Token | Example | Effect |
 |-------|---------|--------|
-| `mode:agent` | `mode:agent` | **Report-only**: return **JSON** instead of markdown tables and skip the Stage 5c apply (the caller applies). Does not change reviewer selection, merge logic, or scope rules (see Output format) |
+| `mode:agent` | `mode:agent` | **Report-only**: return **JSON** instead of the markdown action list and skip the Stage 5c apply (the caller applies). Does not change reviewer selection, merge logic, or scope rules (see Output format) |
 | `mode:headless` | `mode:headless` | **Deprecated alias** for `mode:agent` |
 | `mode:report-only` | `mode:report-only` | **Deprecated — ignored.** Former no-artifacts mode; default behavior is review-only without checkout |
 | `apply:local` | `apply:local` | Explicitly authorize Stage 5c to apply verified findings to the reviewed local checkout. This is authority, not an output mode; bare review remains report-only. |
@@ -95,20 +95,20 @@ Emit a one-line failure reason. In `mode:agent`, return JSON: `{"status":"failed
 Same review pipeline for default and `mode:agent`:
 
 - **Report-only by default; never push.** A bare `ce-code-review` invocation produces findings and does not apply them. Local mutation requires `apply:local` or an explicit user request in the invoking prompt to apply/fix this review's findings. `mode:agent` never mutates the tree, even when nested inside a workflow that later applies findings. Never push, open PRs, or file tickets in any mode.
-- **No blocking prompts.** Never use `AskUserQuestion`, `request_user_input`, `ask_user`, or other blocking question tools. Infer intent, plan, and scope from explicit tokens, git state, PR metadata, and conversation. Note uncertainty in Coverage or the verdict — do not stop to ask.
+- **No blocking prompts.** Never use `AskUserQuestion`, `request_user_input`, `ask_user`, or other blocking question tools. Infer intent, plan, and scope from explicit tokens, git state, PR metadata, and conversation. Note uncertainty in one Notes line and in the coverage record — do not stop to ask.
 - **Explicit mutations only.** Never run `gh pr checkout`, `git checkout`, `git switch`, or similar branch-switch commands. Passing a PR number, URL, or branch name selects **review scope**, not permission to mutate the working tree. To review local uncommitted work on a feature branch, check out that branch yourself (or stay on it) and pass `base:` or no target.
-- **Smart defaults.** Untracked files: review tracked changes only and list excluded paths in Coverage. Plan: use `plan:` when passed; otherwise discover conservatively from PR body or branch keywords. Weak advisory P2/P3 from testing/maintainability alone: demote to `testing_gaps` / `residual_risks` per Stage 5.
+- **Smart defaults.** Untracked files: review tracked changes only and list excluded paths in the coverage record. Plan: use `plan:` when passed; otherwise discover conservatively from PR body or branch keywords. Weak advisory P2/P3 from testing/maintainability alone: demote to `testing_gaps` / `residual_risks` per Stage 5.
 - **Report outcomes, not machinery.** What you show the user is about the review: what's being examined (the PR/branch), which coverage is included and the one-line reason for each conditional lens, and the findings. Keep the skill's internals out of user-facing text — model-tier assignments, raw scope-mode codenames (`local-aligned`/`pr-remote`), staging the diff to disk, loading persona files, parallel-dispatch bookkeeping, and step-by-step narration of your own setup. Name what the user would recognize (a PR number, a reviewer's concern), not the plumbing. This governs *what* you surface and suppress; it does not script the wording — use your own voice.
 
 ## Output format
 
 | Invocation | Deliverable |
 |------------|-------------|
-| **Default** | Report-only markdown (pipe-delimited finding tables) + Actionable Findings summary |
-| **Explicit local apply** | The same markdown report plus verified local fixes and an Applied section |
+| **Default** | Report-only markdown: a bucketed action list, printed least urgent first so the blocking work is last, where each item carries its severity, `file:line`, confidence, and route |
+| **Explicit local apply** | The same markdown action list plus verified local fixes and an Applied section |
 | **`mode:agent`** | One JSON object (see ### JSON output format below) + the same `/tmp/.../ce-code-review/<run-id>/` artifacts |
 
-Default and `mode:agent` are **report-only**. `mode:agent` changes only the serialization from markdown to JSON for programmatic callers; it does not change reviewer selection, merge logic, or scope rules. `apply:local` is separate mutation authority, not an output mode. The default markdown is the human view; keep it ASCII-safe (pipe tables, `->` not middot `·`, no box-drawing) so it degrades gracefully across terminals.
+Default and `mode:agent` are **report-only**. `mode:agent` changes only the serialization from markdown to JSON for programmatic callers; it does not change reviewer selection, merge logic, or scope rules. `apply:local` is separate mutation authority, not an output mode. The default markdown is the human view; keep it ASCII-safe (`->` not middot `·`, no box-drawing) and free of blockquotes and horizontal rules so it degrades gracefully across terminals.
 
 ## Quick Review Short-Circuit
 
@@ -281,14 +281,14 @@ Set `BASE:` to `pr:<number-or-url>` (logical marker — not a git SHA). Set `UNT
 
 **Diff by scope mode** (do not mix remote and local diffs — contradictory hunks cause false positives):
 
-- **`local-aligned`:** Resolve `<resolved-base-ref>` from `baseRefName` (fetch if needed). Compute `BASE=$(git merge-base HEAD <resolved-base-ref>)`, then set `FILES:` from `git diff --name-only $BASE` and `DIFF:` from `git diff -U10 $BASE` (includes committed, staged, and unstaged changes on the PR branch). Do **not** call `gh pr diff` or append remote hunks — when unpushed fixes exist, the local tree is canonical. Note in Coverage: `scope: local-aligned (PR; local tree diff)`.
+- **`local-aligned`:** Resolve `<resolved-base-ref>` from `baseRefName` (fetch if needed). Compute `BASE=$(git merge-base HEAD <resolved-base-ref>)`, then set `FILES:` from `git diff --name-only $BASE` and `DIFF:` from `git diff -U10 $BASE` (includes committed, staged, and unstaged changes on the PR branch). Do **not** call `gh pr diff` or append remote hunks — when unpushed fixes exist, the local tree is canonical. Record `scope: local-aligned (PR; local tree diff)` in the coverage record.
 - **`pr-remote`:** Set `FILES:` from the PR `files` array. Set `DIFF:` from `gh pr diff <number-or-url> --color=never`. If `gh pr diff` fails, stop with an actionable error — do not fall back to checkout.
 
 When **`pr-remote`**, before Stage 4:
 
 1. Best-effort fetch PR head without checkout: `git fetch --no-tags origin <headRefName>:refs/review/pr-<number>-head` (substitute PR number from metadata).
-2. When fetch succeeds, set `PR_HEAD_REF=refs/review/pr-<number>-head` for reviewers and validators. When fetch fails, omit `PR_HEAD_REF` and note in Coverage — reviewers must rely on diff hunks only.
-3. Best-effort fetch the PR base without checkout: `git fetch --no-tags origin <baseRefName>`. When it succeeds, resolve a concrete ref with `git rev-parse FETCH_HEAD` and set `PR_BASE_REF` to that SHA — a **real git base ref** reviewers and validators use for file-level git diffs (e.g. `data-migration-reviewer` runs `git diff <PR_BASE_REF> -- db/schema.rb`/`structure.sql`). The `pr:<number-or-url>` logical marker in `BASE:` stays the scope marker; `PR_BASE_REF` is the diffable base. When the fetch fails, omit `PR_BASE_REF` and note in Coverage — schema-drift and other git-diff checks fall back to diff hunks only and must **not** assume `main`.
+2. When fetch succeeds, set `PR_HEAD_REF=refs/review/pr-<number>-head` for reviewers and validators. When fetch fails, omit `PR_HEAD_REF` and record it in the coverage record — reviewers must rely on diff hunks only.
+3. Best-effort fetch the PR base without checkout: `git fetch --no-tags origin <baseRefName>`. When it succeeds, resolve a concrete ref with `git rev-parse FETCH_HEAD` and set `PR_BASE_REF` to that SHA — a **real git base ref** reviewers and validators use for file-level git diffs (e.g. `data-migration-reviewer` runs `git diff <PR_BASE_REF> -- db/schema.rb`/`structure.sql`). The `pr:<number-or-url>` logical marker in `BASE:` stays the scope marker; `PR_BASE_REF` is the diffable base. When the fetch fails, omit `PR_BASE_REF` and record it in the coverage record — schema-drift and other git-diff checks fall back to diff hunks only and must **not** assume `main`.
 4. Include `<pr-scope-mode>pr-remote</pr-scope-mode>` and, when set, `<pr-head-ref>...</pr-head-ref>` and `<pr-base-ref>...</pr-base-ref>` in the Stage 4 review context bundle.
 
 Reviewers and Stage 5b validators in **`pr-remote`** mode must **not** Read/Grep workspace paths for files in `FILES:`. Inspect via `git show <PR_HEAD_REF>:<path>` when `PR_HEAD_REF` is set, otherwise use only the provided diff hunks. **`local-aligned`** uses normal workspace inspection.
@@ -328,7 +328,7 @@ echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:"
 
 Using `git diff $BASE` (without `..HEAD`) diffs the merge-base against the working tree, which includes committed, staged, and unstaged changes together.
 
-**Untracked file handling:** Always inspect `UNTRACKED:`. Untracked paths are out of scope unless staged. When non-empty, list excluded files in Coverage and continue on tracked changes only — never stop or prompt.
+**Untracked file handling:** Always inspect `UNTRACKED:`. Untracked paths are out of scope unless staged. When non-empty, list excluded files in the coverage record and continue on tracked changes only — never stop or prompt.
 
 ### Stage 1b: Compute scope signals (cheap, deterministic)
 
@@ -373,7 +373,7 @@ with a flat-rate computation. Must not regress edge cases in tax-exempt handling
 
 Pass this to every reviewer in their spawn prompt. Intent shapes *how hard each reviewer looks*, not which reviewers are selected. Keep any `session-settled:` annotations (from a plan or the conversation) out of this summary — reviewers stay blind to settlement (Stage 2b).
 
-**When intent is ambiguous:** Infer from branch name, commits, PR title/body, diff, `plan:`, and conversation. Write the best-effort intent summary and note uncertainty in Coverage — never block on a clarifying question.
+**When intent is ambiguous:** Infer from branch name, commits, PR title/body, diff, `plan:`, and conversation. Write the best-effort intent summary and note uncertainty in one Notes line — never block on a clarifying question.
 
 ### Stage 2b: Plan discovery (requirements verification)
 
@@ -432,7 +432,7 @@ Before spawning sub-agents, find the file paths (not contents) of all relevant s
 Distinguish an empty successful search from a failed or unavailable search:
 
 - One or more applicable paths: select `project-standards` and pass the path list inside a `<standards-paths>` block in its Stage 4 context. The persona reads the files itself, targeting only relevant sections.
-- Empty successful search: do not dispatch `project-standards`; record `project standards: not run (no applicable standards files)` in Coverage.
+- Empty successful search: do not dispatch `project-standards`; record `project standards: not run (no applicable standards files)` in the coverage record.
 - Search failure or uncertain scope: fail closed by dispatching `project-standards` with the uncertainty stated; never treat an error as an empty result.
 
 ### Stage 3c: Small-diff fast path (reduce the roster for trivial, low-risk diffs)
@@ -448,7 +448,7 @@ Distinguish an empty successful search from a failed or unavailable search:
 
 `exec_lines: null`, `uncounted_files > 0`, a non-empty `signals` array, or helper failure are hard disqualifiers. A pure code diff that also touches one `.md` runs the full roster; that conservatism is the point.
 
-**Lite roster:** the inline fast pass (Stage 4) plus `correctness-reviewer`, and `project-standards-reviewer` only when Stage 3b found applicable paths. Announce the actual roster plainly and note it in Coverage.
+**Lite roster:** the inline fast pass (Stage 4) plus `correctness-reviewer`, and `project-standards-reviewer` only when Stage 3b found applicable paths. Announce the actual roster plainly and note it in the report's Notes line for the lite roster.
 
 **Do not collapse** when any gate condition fails — the gate keys on risk, not size alone (a 12-line auth change still needs the full roster). When in doubt, run the full roster.
 
@@ -494,23 +494,23 @@ Stack-specific reviewers fire only when the diff touches runtime behavior they s
 
 After Stage 6, stop. Never push, open PRs, or file tickets from this skill. Bare and `mode:agent` reviews mutate nothing. When local apply was explicitly authorized, Stage 5c may already have applied and, on a clean pre-review tree, committed verified fixes. Otherwise the caller or user decides what to apply from the report and artifacts.
 
-### Emit actionable findings summary (default mode only)
+### The action list is the actionable handoff (default mode only)
 
-After Stage 6 **in default mode**, emit a compact **Actionable Findings** summary for callers:
+In default mode the bucketed action items **are** the Actionable Findings handoff — do not append a recap that repeats them. Each actionable finding (`gated_auto` or `manual` with `downstream-resolver`) is already an item carrying its stable `#`, severity, `file:line`, imperative title, `autofix_class -> owner` route, whether a `suggested_fix` exists, and `confidence`, so a caller reads the buckets and needs nothing after them. The buckets are the report's **last** section, printed least urgent first, so the reader's cursor lands on the blocking work.
 
-- List each actionable finding (`gated_auto` or `manual` with `downstream-resolver`) with stable `#`, severity, file:line, title, `autofix_class`, whether `suggested_fix` is present, and `confidence`.
-- Include the resolved run-artifact path when one was written.
-- When the actionable queue is empty, state `Actionable findings: none.` explicitly.
+- Every actionable finding appears as an item — never replaced by a count, and never deferred to a trailing table.
+- Put the resolved run-artifact path in the header, not after the buckets — nothing informational follows the last item.
+- When the actionable queue is empty, state `Actionable findings: none.` explicitly on its own line after the buckets.
 
-In `mode:agent` do **not** emit this markdown summary — the actionable findings are carried solely by the `actionable_findings` field of the JSON object. Emit nothing after the JSON object, so the response stays a single parseable JSON value.
+In `mode:agent` do **not** emit markdown — the actionable findings are carried solely by the `actionable_findings` field of the JSON object. Emit nothing after the JSON object, so the response stays a single parseable JSON value.
 
-Do not run post-review triage (no per-finding walk-through, bulk ticket filing, or routing questions). The report and summary are the complete handoff.
+Do not run post-review triage (no per-finding walk-through, bulk ticket filing, or routing questions). The action list is the complete handoff.
 
 ### Mode-specific completion
 
-| Mode | After Stage 6 + actionable summary |
-|------|-----------------------------------|
-| **Default** | Markdown tables + Actionable Findings summary. |
+| Mode | After Stage 6 |
+|------|---------------|
+| **Default** | The markdown action list: header (with the artifact path) and informational sections first, action buckets last, ending on the highest-priority item or `Actionable findings: none.` |
 | **`mode:agent`** | JSON object + `review.json` in run artifact dir. |
 
 Do not offer push/PR/create-branch next steps from this skill.
@@ -522,6 +522,7 @@ Always write run artifacts under the resolved `<run-dir>`:
 - synthesized findings
 - actionable findings list
 - advisory outputs
+- the coverage record (suppressed and demotion counts, validator batch outcome, failed reviewers, scope caveats, removable surface, cross-model status) — recorded here because the markdown report has no Coverage section
 - per-agent `{reviewer_name}.json` from Stage 4
 - `report.md` — the rendered markdown report exactly as presented to the user (default mode only), so format and numbering stay auditable after the run
 
@@ -537,7 +538,7 @@ Always write run artifacts under the resolved `<run-dir>`:
 }
 ```
 
-Capture `branch` and `head_sha` at dispatch time (no in-skill fixes will land afterward).
+Capture `branch` and `head_sha` at dispatch time (no in-skill fixes will land afterward). The markdown report renders no verdict; derive the artifact `verdict` field mechanically from the action list — `Not ready` when the `Fix before merge` bucket holds a P0, `Ready with fixes` when it holds only P1s or the other buckets are non-empty, `Ready to merge` when no items survived. It exists for artifact and `mode:agent` consumers, not for the reader of the report.
 
 ## Fallback
 

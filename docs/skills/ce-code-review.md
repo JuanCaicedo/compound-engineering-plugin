@@ -14,7 +14,7 @@ The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /c
 |----------|--------|
 | What does it do? | Selects reviewer personas based on diff content, dispatches them in parallel, merges findings into one report with confidence gating and auto-fix routing |
 | When to use it | Before opening a PR for sensitive/large work; explicit deep review requested; harness has no built-in `/review` |
-| What it produces | A structured findings report; with explicit local-apply authority it can also apply verified fixes and add an Applied section (it never pushes) |
+| What it produces | A bucketed action list where every item carries its own severity, `file:line`, confidence, and route; with explicit local-apply authority it can also apply verified fixes and add an Applied section (it never pushes) |
 | Modes | Markdown report (default) and `mode:agent` JSON handoff; both are report-only unless local apply is separately authorized |
 
 ---
@@ -104,7 +104,7 @@ Synthesis owns the final route. Persona-provided routing metadata is input, not 
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Default markdown** | Direct user invocation | Report-only markdown with stable findings and an actionable summary |
+| **Default markdown** | Direct user invocation | Report-only markdown action list, written for a terminal reader: header, notes, pre-existing, applied, and triage groups first; then `Optional` -> `Worth fixing` -> `Fix before merge` buckets, so the report ends on the highest-priority item. No trailing verdict, coverage, or learnings sections |
 | **`mode:agent`** | `mode:agent` (alias `mode:headless`) | One JSON object; report-only — the review mutates nothing and the caller (e.g. `/ce-work`) applies findings and owns the Residual Work Gate |
 | **Explicit local apply** | Add `apply:local`, or explicitly ask the invoked review to apply/fix its findings | Keeps markdown presentation; Stage 5c may apply verified fixes and commit them when the pre-review tree was clean. Never pushes |
 
@@ -127,7 +127,7 @@ After all dispatched personas return, synthesis:
 
 The output is one report with calibrated severity, evidence quotes, and explicit ownership — not a flat list of every reviewer's raw output. When a finding's judgment depends on line history (pre-existing vs this-diff, intentional design, or high-severity confidence that needs authorship/age), evidence is expected to include one concise git provenance line (short hash, author, subject/date) — never a full-file blame dump, and never when the finding is already justified from the diff alone.
 
-Synthesis also builds **thematic triage groups** (`grouping:auto`, the default): when findings span distinct concerns, related ones are grouped under a short theme — shared root cause, overlapping fix path, one design decision resolving several findings — so a 20-finding review reads as a handful of themes instead of 20 independent items. Groups are a triage lens, not a restructure: findings keep their stable `#`s and severity tables, groups reference them (`#2, #3`), and the `mode:agent` JSON carries the same groups in a `triage_groups` field — a lens over every finding, not an apply queue, so a caller batches by theme only after filtering each group to the actionable subset. Pass `grouping:off` for a flat report or `grouping:always` to group even small reviews.
+Synthesis also builds **thematic triage groups** (`grouping:auto`, the default): when findings span distinct concerns, related ones are grouped under a short theme — shared root cause, overlapping fix path, one design decision resolving several findings — so a 20-finding review reads as a handful of themes instead of 20 independent items. Groups are a triage lens, not a restructure: findings keep their stable `#`s and their bucket placement, groups reference them (`#2, #3`), and the `mode:agent` JSON carries the same groups in a `triage_groups` field — a lens over every finding, not an apply queue, so a caller batches by theme only after filtering each group to the actionable subset. Pass `grouping:off` for a flat report or `grouping:always` to group even small reviews.
 
 ### 6. Plan discovery for requirements verification
 
@@ -135,7 +135,7 @@ When the diff has an associated plan (`docs/plans/*.md`), the skill discovers it
 
 ### 7. Residual Work Gate
 
-Actionable work does not disappear into chat. The Residual Actionable Work summary lists each unresolved finding with stable numbering, severity, file:line, title, and autofix class. Callers (e.g., `/ce-work` Phase 3.4) read this summary after their own apply pass and present user options: apply now, file tickets, accept with durable sink, or stop. A bare review reports the same actionable set without applying it.
+Actionable work does not disappear into chat. Every unresolved finding is an action item carrying stable numbering, severity, `file:line`, an imperative title, and its autofix class -- so the action list itself is the handoff, with no duplicate recap appended. Callers (e.g., `/ce-work` Phase 3.4) read those items (or the `actionable_findings` field in `mode:agent`) after their own apply pass and present user options: apply now, file tickets, accept with durable sink, or stop. A bare review reports the same actionable set without applying it.
 
 ### 8. Protected artifacts
 

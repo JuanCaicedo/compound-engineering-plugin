@@ -10,7 +10,7 @@ This reference loads **after** review has run. In the ce-work shipping flow, ste
 
 Reuse the review output already in hand:
 
-- Parsed JSON (`status`, `actionable_findings`, `findings`, `artifact_path`, `run_id`) **or** the markdown Actionable Findings summary captured by the caller
+- Parsed JSON (`status`, `actionable_findings`, `findings`, `artifact_path`, `run_id`) **or**, from a markdown review, the action items routed `-> downstream-resolver` captured by the caller
 - Run artifact dir: `<artifact-path>/` (`review.json`, per-reviewer JSON for `why_it_matters`)
 
 If `status` is `failed`, stop shipping and surface `reason`. If `degraded`, note partial reviewer coverage before applying anything.
@@ -30,11 +30,11 @@ ce-code-review mode:agent plan:<plan-path> base:<merge-base-or-ref>
 - `base:` — when the diff base is already resolved on the current checkout; omit when reviewing a PR number/URL or standalone current branch.
 - Do **not** pass deprecated `mode:autofix`.
 
-For human-facing shipping, invoke `ce-code-review` without `mode:agent` if markdown tables are preferred. It still reports only unless the invocation explicitly authorizes local apply. Capture the Actionable Findings and artifact dir before caller-owned apply.
+For human-facing shipping, invoke `ce-code-review` without `mode:agent` if the markdown action list is preferred. It still reports only unless the invocation explicitly authorizes local apply. Capture the `-> downstream-resolver` action items and the artifact dir before caller-owned apply.
 
 ## Inputs for apply
 
-- `actionable_findings` from JSON, or the Actionable Findings section from markdown
+- `actionable_findings` from JSON, or the markdown action items whose route ends in `-> downstream-resolver`
 - Full finding detail when needed: `review.json` / artifact `findings`, or `{reviewer}.json` for `why_it_matters` and `evidence`
 - Stable finding `#` — reuse in commits, residual sinks, and subagent prompts
 

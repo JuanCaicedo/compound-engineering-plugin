@@ -596,9 +596,56 @@ describe("ce-code-review contract", () => {
     // Economy is about expression, not coverage: no file pasting / diff restating
     expect(content).toMatch(/do not paste file contents/i)
 
-    // Long output: the closing (verdict + actionable list) stands alone
-    expect(content).toMatch(/stand alone without scrolling/i)
-    expect(content).toMatch(/Actionable list are present, last, and self-sufficient/i)
+    // Self-contained items replace the trailing verdict/coverage/learnings blocks:
+    // a reader landing on one item can act on it without scrolling anywhere else.
+    expect(content).toMatch(/every item is read cold, so every item is self-sufficient/i)
+    expect(content).toMatch(/no Verdict block, no Coverage section, no Learnings section/i)
+    expect(content).toMatch(/no blockquotes and no horizontal rules/i)
+    expect(template).toMatch(/No blockquotes/i)
+    expect(template).toMatch(/No horizontal rules/i)
+    expect(template).toMatch(/Nothing informational after the items/i)
+    // Inline code stays scoped to identifiers so it does not render as a solid block
+    expect(content).toMatch(/never a whole clause or sentence/i)
+    expect(template).toMatch(/never a whole clause or sentence/i)
+    // Buckets carry urgency; no severity-table skeleton remains
+    for (const bucket of ["### Fix before merge", "### Worth fixing", "### Optional"]) {
+      expect(content).toContain(bucket)
+      expect(template).toContain(bucket)
+    }
+    // Reverse urgency order: the terminal viewport lands on the last line, so the
+    // blocking bucket is the report's final section and context sits at the top.
+    expect(content).toMatch(/read bottom-up, so it is written in reverse order of importance/i)
+    expect(template).toMatch(/read bottom-up, so it is written in reverse order of importance/i)
+    expect(content).toMatch(/`### Fix before merge` \(P0 \+ P1\) as the \*\*final section of the report\*\*/)
+    expect(content).toMatch(/ends on the highest-priority action item/i)
+    for (const surface of [content, template]) {
+      const optional = surface.lastIndexOf("### Optional")
+      const worth = surface.lastIndexOf("### Worth fixing")
+      const blocking = surface.lastIndexOf("### Fix before merge")
+      expect(optional).toBeLessThan(worth)
+      expect(worth).toBeLessThan(blocking)
+    }
+    // Nothing informational trails the items -- the artifact path moves into the header
+    expect(content).toMatch(/Nothing informational follows the last item/i)
+    // The template's own example renders the numbers counting down to #1
+    const example = template.split("## Example")[1].split("## Header")[0]
+    const rendered = Array.from(example.matchAll(/^\*\*(\d+)\. /gm), ([, id]) => Number(id))
+    expect(rendered).toEqual([5, 4, 3, 2, 1])
+    // Within a bucket the best-evidenced item is closest to the cursor
+    expect(template).toMatch(/order items by confidence anchor \*\*ascending\*\*/i)
+    // A prerequisite is named in the body, never implied by position
+    expect(template).toMatch(/never expressed by position/i)
+    // The skeleton itself lists no Coverage/Learnings/Verdict section...
+    const skeleton = template.split("## Sections")[1].split("## Example")[0]
+    for (const gone of ["Coverage", "Learnings", "Verdict"]) {
+      expect(skeleton).not.toContain(gone)
+    }
+    // ...and the example renders none of them
+    expect(example).not.toContain("### Coverage")
+    expect(example).not.toContain("### Learnings")
+    expect(example).not.toMatch(/^> /m)
+    // ...while the anti-patterns section names them as the regression to avoid
+    expect(template).toMatch(/Also wrong[^\n]*### Coverage/)
 
     // Shape serves the finding type, but consistent within a section
     expect(content).toMatch(/consistent within (a |the )?section/i)
@@ -607,10 +654,10 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(/box-drawing/i)
     expect(template).toMatch(/box-drawing/i)
 
-    // Stable numbering reused; multi-file applied fix is one row; keyed detail line is the home for depth
+    // Stable numbering reused; multi-file applied fix is one row; the item body is the home for depth
     expect(content).toMatch(/reuse the same `#`/i)
     expect(template).toMatch(/one row with one `#`/i)
-    expect(template).toMatch(/\*\*#N\*\*/)
+    expect(template).toMatch(/tag group `\(severity, reviewer\(s\), confidence NN, autofix_class -> owner/)
   })
 
   test("PR-mode skip-condition pre-check stops without dispatching reviewers", async () => {
@@ -957,11 +1004,16 @@ describe("ce-code-review contract", () => {
     expect(lfg).toMatch(/Never block DONE on tracker filing failures/i)
   })
 
-  test("ce-code-review emits actionable findings summary for callers", async () => {
+  test("the action list itself is the actionable handoff for callers", async () => {
     const content = await readRepoFile("skills/ce-code-review/SKILL.md")
-    expect(content).toContain("### Emit actionable findings summary")
-    expect(content).toContain("Actionable Findings")
-    expect(content).toContain("with stable `#`, severity, file:line, title, `autofix_class`")
+    expect(content).toContain("### The action list is the actionable handoff")
+    // Each item carries the routing fields a caller used to read from a recap table
+    expect(content).toContain(
+      "stable `#`, severity, `file:line`, imperative title, `autofix_class -> owner` route",
+    )
+    // No duplicate trailing recap of the same items
+    expect(content).toMatch(/do not append a recap that repeats them/i)
+    // Empty-queue sentinel survives — ce-work's Residual Work Gate keys off it
     expect(content).toContain("Actionable findings: none.")
   })
 
@@ -982,19 +1034,33 @@ describe("ce-code-review contract", () => {
     expect(stage5).toMatch(/reuse the (same |helper's )?stable `#`/i)
     expect(mechanics).toMatch(/enumerate\(survivors, 1\)/)
 
-    const stage6 = content.split("### Headless output format")[0].split("### Stage 6: Synthesize and present")[1]
+    const stage6 = content.split("\n### JSON output format")[0].split("### Stage 6: Synthesize and present")[1]
     expect(stage6).toContain("Finding numbers come from the stable assignment in Stage 5")
-    expect(stage6).toContain("never re-derive them per severity section")
-    expect(template).toContain("Stable sequential finding numbers")
-    expect(template).toContain("reuse those same numbers when findings are repeated in Actionable Findings")
+    expect(stage6).toContain("never re-derive them per bucket")
+    expect(template).toContain("Stable `#` numbering from Stage 5")
+    expect(template).toMatch(/reuse the same `#` wherever a finding reappears/)
 
-    // Per-severity tables are 5-column (# | File | Issue | Reviewer | Confidence);
-    // Route lives in the Actionable Findings table + JSON, not the scannable tables.
+    // Items are numbered prose blocks: "**N. Imperative title** -- `file:line` (tags...)"
     const primaryFindingIds = Array.from(
-      fixture.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| .* \| \d+ \|$/gm),
+      fixture.matchAll(/^\*\*(\d+)\. .+\*\* -- `[^`]+` \(P\d, .*confidence \d+.*\)$/gm),
       ([, id]) => Number(id),
     )
-    expect(primaryFindingIds).toEqual([1, 2, 3])
+    // #1 stays the most urgent finding, so the numbers count DOWN the screen
+    expect(primaryFindingIds).toEqual([3, 2, 1])
+    // The blocking bucket is last, and #1 is the report's final item
+    expect(fixture.lastIndexOf("### Worth fixing")).toBeLessThan(
+      fixture.lastIndexOf("### Fix before merge"),
+    )
+    expect(fixture.trimEnd().split("\n\n").at(-1)).toMatch(/^\*\*1\. /)
+    // Informational sections sit above the items
+    for (const section of ["### Notes", "### Applied", "### Triage Groups"]) {
+      expect(fixture.indexOf(section)).toBeLessThan(fixture.indexOf("### Fix before merge"))
+    }
+    // Every item carries its own route, so no trailing recap is needed to find it
+    expect(fixture).toMatch(/gated_auto -> downstream-resolver/)
+    expect(fixture).not.toContain("### Actionable Findings")
+    expect(fixture).not.toContain("### Coverage")
+    expect(fixture).not.toMatch(/^> \*\*Verdict/m)
 
     // Applied findings keep their stable # and appear only in the Applied section (default mode), not severity tables
     const appliedSection = fixture.split("### Applied")[1].split("\n### ")[0]
@@ -1005,16 +1071,12 @@ describe("ce-code-review contract", () => {
     expect(appliedIds).toEqual([4])
     expect(appliedIds.every((id) => !primaryFindingIds.includes(id))).toBe(true)
 
-    // Keyed detail lines under a table are supplements, not findings — they reuse a # and never add one
-    expect(fixture).toMatch(/^- \*\*#1\*\*/m)
-
-    const residualSection = fixture.split("### Actionable Findings")[1]
-    const residualIds = Array.from(
-      residualSection.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| `.*` \| .* \|$/gm),
-      ([, id]) => Number(id),
+    // Cross-references between items reuse a stable # and never introduce a new one
+    const crossRefs = Array.from(fixture.matchAll(/decided in #(\d+)|behind it \(#(\d+)\)/g), (m) =>
+      Number(m[1] ?? m[2]),
     )
-    expect(residualIds).toEqual([2, 3])
-    expect(residualIds.every((id) => primaryFindingIds.includes(id))).toBe(true)
+    expect(crossRefs.length).toBeGreaterThan(0)
+    expect(crossRefs.every((id) => primaryFindingIds.includes(id))).toBe(true)
   })
 
   test("documents grouping tokens as presentation with conflict handling", async () => {
@@ -1085,11 +1147,11 @@ describe("ce-code-review contract", () => {
     // Template carries the canonical skeleton and formatting rule
     expect(template).toContain("### Triage Groups")
     expect(template).toContain("| Group | Findings | Context | Preferred Resolution | Why |")
-    expect(template).toMatch(/never replace the severity tables, merge findings, or renumber them/)
+    expect(template).toMatch(/never replace the buckets, merge findings, or renumber them/)
 
     // Fixture group references resolve to primary finding numbers
     const primaryFindingIds = Array.from(
-      fixture.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| .* \| \d+ \|$/gm),
+      fixture.matchAll(/^\*\*(\d+)\. .+\*\* -- `[^`]+` \(P\d, .*confidence \d+.*\)$/gm),
       ([, id]) => Number(id),
     )
     const groupSection = fixture.split("### Triage Groups")[1].split("\n### ")[0]
@@ -1283,5 +1345,72 @@ describe("testing-reviewer contract", () => {
 
     // Non-behavioral changes are excluded
     expect(content).toContain("Non-behavioral changes")
+  })
+})
+
+describe("ce-quick-review presentation contract", () => {
+  // Both review skills render bottom-up: the terminal viewport lands on the last
+  // line, so the blocking bucket is the report's final section. The defended
+  // regression is a surface drifting back to most-urgent-first, which puts the P0
+  // far above the reader's cursor.
+  test("interactive report prints buckets in reverse urgency order", async () => {
+    const skill = await readRepoFile("skills/ce-quick-review/SKILL.md")
+    const template = await readRepoFile(
+      "skills/ce-quick-review/references/review-output-template.md",
+    )
+
+    // Scope each check to the surface that owns the order: the skill's render step,
+    // the template's bucket table, and the template's rendered example.
+    const renderStep = skill
+      .split("### Headless output format")[0]
+      .split("### Stage 5: Synthesize and present")[1]
+    const bucketTable = template.split("## Buckets")[1].split("## Example")[0]
+    const example = template.split("## Example")[1].split("## Heading")[0]
+
+    for (const surface of [renderStep, bucketTable, example]) {
+      const optional = surface.indexOf("Optional")
+      const worth = surface.indexOf("Worth fixing")
+      const blocking = surface.indexOf("Fix before merge")
+      expect(optional).toBeGreaterThan(-1)
+      expect(optional).toBeLessThan(worth)
+      expect(worth).toBeLessThan(blocking)
+    }
+    for (const surface of [skill, template]) {
+      expect(surface).toMatch(/read bottom-up, so it is written in reverse order of importance/i)
+    }
+    // The example's numbers count down: item #1 is the last one rendered
+    const rendered = Array.from(example.matchAll(/^\*\*(\d+)\. /gm), ([, id]) => Number(id))
+    expect(rendered).toEqual([4, 3, 2, 1])
+
+    // The blocking bucket is explicitly the last section, and nothing trails it
+    expect(skill).toMatch(/`Fix before merge` \(P0\/P1\) as the \*\*final section of the report\*\*/)
+    expect(skill).toMatch(/Nothing informational follows the last item/i)
+    expect(template).toMatch(/Nothing informational after the items/i)
+    expect(template).toMatch(/last section in the report/i)
+
+    // Within a bucket the best-evidenced item sits closest to the cursor
+    expect(template).toMatch(/order items by confidence anchor \*\*ascending\*\*/i)
+    expect(skill).toMatch(/order by confidence anchor \*\*ascending\*\*/i)
+
+    // #1 stays the most urgent item, so the numbers count down the screen
+    expect(skill).toMatch(/`#1` is the most urgent item/)
+    expect(template).toMatch(/numbers count \*\*down\*\* the screen/)
+
+    // Informational sections move above the items
+    expect(template).toMatch(/`### Notes` sits at the top/)
+
+    // Dependencies are stated in the body, never implied by position
+    expect(skill).toMatch(/Do not reorder for prerequisites/i)
+    expect(template).toMatch(/never expressed by position/i)
+  })
+
+  test("headless envelope stays in ascending fix order for parsers", async () => {
+    const skill = await readRepoFile("skills/ce-quick-review/SKILL.md")
+    const headless = skill.split("### Headless output format")[1].split("## Quality Gates")[0]
+
+    expect(headless).toMatch(/parsed, not scrolled/i)
+    expect(headless).toMatch(/ascending fix order \(`\[1\]` first\)/)
+    // The envelope itself still lists [1] before [2]
+    expect(headless.indexOf("[1][P0]")).toBeLessThan(headless.indexOf("[2][P2]"))
   })
 })
