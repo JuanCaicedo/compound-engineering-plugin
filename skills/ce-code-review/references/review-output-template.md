@@ -1,6 +1,6 @@
 # Code Review Output Template
 
-The report is an **action list**, ordered for a terminal reader. Every item is something the reader will either fix (their own change) or raise as review feedback (someone else's). Anything the reader cannot act on does not belong in the report. This file is the **canonical skeleton** for *which sections appear and in what order* — copy the section structure; the example below shows one good rendering, not the only permitted layout.
+The report is an **action list**, ordered for a terminal reader. Every item is something the reader will either fix (their own change) or raise as review feedback (someone else's). Anything the reader cannot act on does not belong in the report. This file is the **canonical skeleton** for *which sections appear and in what order* — copy the section structure; the example below shows one good rendering, not the only permitted layout. Shape each item for the reader's next action per *Presentation direction* in `references/finish-review.md` (Stage 6).
 
 **The report is read bottom-up, so it is written in reverse order of importance.** When output ends, the terminal viewport sits on the last line — so the last thing printed is the thing to do first. Context and already-settled information (scope, reviewers, artifacts, applied fixes, pre-existing issues, caveats) goes at the **top**, where it is scrolled past. The action items go **last**, least urgent first, so the blocking work is on screen without scrolling.
 
@@ -131,7 +131,7 @@ Render `### Triage Groups` above the item buckets, and only when finalized group
 `### Notes` sits near the top, under the header, because it is context rather than work. It exists only for facts that change whether the items below apply or whether the list can be trusted. At most five lines, one line each:
 
 - A **past learning** that applies to a specific item (reference it by `#`) or that names a documented pattern the diff repeats. A learning that produces no action is dropped, not reported.
-- A **scope or trust caveat** — the local tree is behind the remote branch, the diff base was overridden, untracked files were excluded, the lite roster ran, a reviewer failed or returned malformed JSON so its lens went unreviewed, or intent was inferred rather than stated.
+- A **scope or trust caveat** — the local tree is behind the remote branch, the diff base was overridden, untracked files were excluded, the lite or focused depth path ran, a reviewer failed or returned malformed JSON so its lens went unreviewed, or intent was inferred rather than stated.
 - A **plan line** when a plan was discovered: whether every requirement is addressed. Unaddressed requirements are action items in the buckets above, not a checklist here.
 - An **open question for the author** that no code change resolves.
 
@@ -164,7 +164,7 @@ Also wrong, even with correct structure: a trailing `### Coverage` / `### Learni
 
 When `mode:agent` is active, **do not** emit the markdown report above. Emit **one parseable JSON object** as the primary response and write the same payload to `review.json` under the resolved `<run-dir>`.
 
-The contract is defined in SKILL.md under **`### JSON output format (`mode:agent` only)`**. Minimum fields: `status`, `verdict`, `scope`, `intent`, `reviewers`, `findings`, `actionable_findings`, `artifact_path`, `run_id`.
+The contract is defined in `references/modes-and-output.md` under **`## JSON output format (`mode:agent` only)`**. Minimum fields: `status`, `verdict`, `scope`, `intent`, `reviewers`, `findings`, `actionable_findings`, `artifact_path`, `run_id`.
 
 Key differences from the human-facing markdown format:
 

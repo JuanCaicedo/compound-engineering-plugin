@@ -33,7 +33,7 @@ Those cases require **Replace**, not Update.
 
 Relocate only when the misfiling is unambiguous: the doc's directory and its frontmatter category disagree, or the content plainly belongs in a different **existing** category. A mismatch proves something is wrong but not which side — read the content and decide whether the directory is wrong (relocate) or the frontmatter is wrong (fix the frontmatter in place; that is an ordinary Update, not a move). Never create a new category directory for a relocation, and never relocate on a judgment call — placement has no ground truth, and a move a later run could argue back is churn.
 
-In headless mode, apply the relocation only when all four conditions hold, mirroring the auto-delete pattern: (1) frontmatter and directory disagree per the category mapping, (2) content evidence clearly resolves the direction as directory-wrong, (3) the target category directory already exists, (4) every inbound citation is in-repo and mechanically rewritable. If any condition fails — including content that plausibly fits either category — record the relocation (doc, proposed target, which condition failed) under Recommended instead of moving.
+In non-interactive mode, apply the relocation only when all four conditions hold, mirroring the auto-delete pattern: (1) frontmatter and directory disagree per the category mapping, (2) content evidence clearly resolves the direction as directory-wrong, (3) the target category directory already exists, (4) every inbound citation is in-repo and mechanically rewritable. If any condition fails — including content that plausibly fits either category — record the relocation (doc, proposed target, which condition failed) under Recommended instead of moving.
 
 1. Confirm the target category directory exists.
 2. Move the file with `git mv` so history follows the rename.
@@ -61,7 +61,7 @@ After the merge, run the mechanical claims check on the canonical doc (step 4 of
 
 Split is the inverse of Consolidate: one multi-problem doc becomes N focused successors. The bar is high — splitting doubles drift surface, the exact risk consolidation exists to remove. Split only when the Retrieval-Value Test inverts: a maintainer searching for one sub-topic would be materially harmed by wading through the other content, and each fragment has independent retrieval value. Length alone is never a reason.
 
-In headless mode, do not split; record the recommendation (doc, proposed fragment boundaries, evidence) under Recommended.
+In non-interactive mode, do not split; record the recommendation (doc, proposed fragment boundaries, evidence) under Recommended.
 
 Process splits **one at a time, sequentially**, reusing the Replace machinery:
 
@@ -87,7 +87,7 @@ Do not let replacement subagents invent frontmatter fields, enum values, or sect
 1. Spawn a single subagent to write the replacement learning. Pass it:
    - The old learning's full content
    - A summary of the investigation evidence (what changed, what the current code does, why the old guidance is misleading)
-   - The target path and category (same category as the old learning unless the category itself changed)
+   - The target path and category (same category as the old learning unless the category itself changed). The replacement chooses `component`/`root_cause` under the corpus-first rule in `references/yaml-schema.md`, counting the old learning as one of the corpus's docs (so its `component` counts for the area, and its `root_cause` counts only for the cause it describes)
    - The relevant contents of the three support files listed above
 2. The subagent writes the new learning using the support files as the source of truth: `references/schema.yaml` for frontmatter fields and enum values, `references/yaml-schema.md` for category mapping and YAML-safety rules for array items, and `assets/resolution-template.md` for section order. It should use dedicated file search and read tools if it needs additional context beyond what was passed.
 3. **Validate parser-safety of the new learning's frontmatter** to catch silent-corruption issues the prose rules miss: malformed `---` delimiter lines, unquoted ` #` in scalar values (silent comment truncation), and unquoted `: ` in scalar values (silent mapping confusion). The bundled validator ships **inside the skill bundle**; set `SKILL_DIR` to the absolute path of the directory containing this skill's SKILL.md and run it through an existence guard so platforms that cannot locate the script fall back to a manual check instead of silently skipping the protection:
@@ -109,7 +109,7 @@ Do not let replacement subagents invent frontmatter fields, enum values, or sect
      Nested values, array items, and already-quoted values are out of scope here (array-item quoting is handled by the schema/YAML-safety step above). Then note in the completion output that the bundled script validator was unavailable on this platform and the checks were applied manually.
 
    The validator does not enforce schema rules and does not flag YAML reserved-indicator characters (those produce loud parser errors downstream rather than silent corruption — out of scope). Uses Python 3 stdlib only (no PyYAML or other deps).
-4. **Run the mechanical claims check on the successor doc.** The bundled `scripts/validate-doc-claims.py` flags cited repo paths missing from the tree, commit SHAs that do not resolve or are unreachable, relative doc links that do not resolve, and dangling drafting scaffold ("Learning 3", unresolved `{{...}}` tokens):
+4. **Run the mechanical claims check on the successor doc.** The bundled `scripts/validate-doc-claims.py` flags cited repo paths missing from the tree, commit SHAs that do not resolve or are unreachable, relative doc links that do not resolve, and dangling drafting scaffold ("Learning 3", unresolved `{{...}}` tokens). It also emits lower-tier `NOTE` lines for unresolved hex identifiers it cannot classify; those do not affect its exit code and are read, not fixed:
 
    ```bash
    SKILL_DIR="<absolute path of the directory containing the SKILL.md you just read>";

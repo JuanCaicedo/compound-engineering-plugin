@@ -17,12 +17,13 @@ date: [YYYY-MM-DD]
 category: [solutions subdirectory]
 module: [Module or area]
 problem_type: [schema enum]
-component: [schema enum]
+component: [corpus value, else schema suggested default]
 symptoms:
   - [Observable symptom 1]
-root_cause: [schema enum]
+root_cause: [corpus value, else schema suggested default]
 resolution_type: [schema enum]
 severity: [schema enum]
+retire_when: [optional; the outside change that would retire this doc and how to check for it, else omit this line]
 tags: [keyword-one, keyword-two]
 ---
 
@@ -65,10 +66,11 @@ date: [YYYY-MM-DD]
 category: [solutions subdirectory]
 module: [Module or area]
 problem_type: [schema enum]
-component: [schema enum]
+component: [corpus value, else schema suggested default]
 severity: [schema enum]
 applies_when:
   - [Condition where this applies]
+retire_when: [optional; the outside change that would retire this doc and how to check for it, else omit this line]
 tags: [keyword-one, keyword-two]
 ---
 

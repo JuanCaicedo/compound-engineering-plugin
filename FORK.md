@@ -14,7 +14,8 @@ The fork exists mainly to carry **GitLab** skills, which upstream does not want 
 
 Upstream skills are modified in two places:
 
-- **`ce-plan`** — plan filenames use a ticket identifier (`YYYY-MM-DD-ft-<ticket>-<type>-<name>-plan.md`) instead of upstream's daily sequence number (`-NNN-`).
+- **`ce-plan`** — plan filenames use a ticket identifier (`YYYY-MM-DD-ft-<ticket>-<type>-<name>-plan.md`) instead of upstream's wall-clock prefix (`-HHMM-`, formerly a daily `-NNN-` sequence). Open Questions must also survive a resolution pass (code, origin artifacts, obvious default) before they stay in a plan.
+- **Review report shape** — `ce-code-review`'s markdown report and `ce-quick-review`'s report are a bottom-up action list: context first, then `Optional` -> `Worth fixing` -> `Fix before merge`, so the report ends on the most urgent item. There is no "Actionable Findings" section; consumers (`ce-work`, `lfg`) read `actionable_findings` from `mode:agent` JSON or the markdown items routed `-> downstream-resolver`.
 - **Cross-model peer review is disabled fork-wide** — see below.
 
 Everything else tracks upstream unchanged.
@@ -32,7 +33,7 @@ Upstream ships four surfaces that send project content to an external model CLI 
 
 **The machinery stays on disk.** `cross-model-*.md` references, `cross-model-*.sh` workers, and `peer-job-runner.py` are untouched so upstream merges apply cleanly and the parity tests keep passing. Each dormant reference carries a `DISABLED IN THIS FORK` banner. The gates are in the orchestration prose, at the point where each skill would otherwise resolve a route or start a job — that is the layer to re-check after every sync.
 
-Two config keys are now inert and documented as such in `config-template.yaml`, its byte-identical `.compound-engineering/config.local.example.yaml` copy, and `docs/skills/configuration.md`: `cross_model_peer` and the `work_engine_mode` / `work_engine_preferences` pair. Setting them does not re-enable anything.
+The peer and external-worker config keys are inert and documented as such in `config-template.yaml`, its byte-identical `.compound-engineering/config.example.yaml` copy, and `docs/guides/configuration.md`: `cross_model_review_mode`, `cross_model_peer`, `cross_model_model`, `cross_model_effort`, `work_engine_mode`, `work_engine_preferences`, and `work_engine_effort`. Setting them, including `cross_model_review_mode: auto`, does not re-enable anything.
 
 **Not covered: model elevation.** `ce-plan` and `ce-brainstorm` share the same `peer-job-runner.py` plumbing for a *different* feature — dispatching one reasoning-heavy step to a user-chosen model (`references/reasoning-elevation.md`). It is **not** cross-model peer review: it never routes to Codex, Cursor, or Grok, its only off-host adapter is the `claude` CLI, and it is off unless `plan_model` / `brainstorm_model` is set or the prompt explicitly asks for it. It was left alone because it is out of scope for "stop shipping code to Codex/Cursor" — but it *can* invoke an external CLI, so disable it too by leaving those config keys unset if you want a strictly no-egress checkout.
 
@@ -115,7 +116,7 @@ Take upstream's side by default. The fork's surface is small and deliberate; any
 | `.claude-plugin/marketplace.json` | Keep fork `name`/`owner`/`homepage` and the fork description. Take upstream's `metadata.version` and plugin `source` — those are release-owned. |
 | `README.md` | Take upstream's content, then re-point install paths to `JuanCaicedo/...` and keep the fork notice near the top. |
 | `AGENTS.md` / `CLAUDE.md` | Take upstream. `CLAUDE.md` must stay a symlink to `AGENTS.md`. |
-| `skills/ce-plan/SKILL.md` | Take upstream, then re-apply the `ft-<ticket>` naming (two spots: Phase 3.1 file naming, and the save-path block). |
+| `skills/ce-plan/**` | Take upstream, then re-apply the `ft-<ticket>` naming (two spots: the filename step in `references/structure.md`, and the save-path block in `references/final-review.md`) and the Open Questions checklist line in `references/final-review.md`. `SKILL.md` itself is now a thin upstream spine with no fork edit. |
 | `tests/release-metadata.test.ts` | Asserts a hardcoded skill count. Take upstream's number and add the fork's skill count on top — do not revert to the upstream literal. |
 | Any cross-model gate (see table below) | Take upstream's content, then re-apply the fork's disable gate. Never accept an upstream hunk that restores a peer dispatch, route resolution, or egress announcement. |
 | A fork skill | Fork-owned; keep the fork's version. |
@@ -129,7 +130,15 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 |---|---|
 | `.gitattributes` | `eol=lf` pin for the fork's extensionless scripts |
 | `tests/release-metadata.test.ts` | Skill count (upstream's number plus the fork's 3) |
-| `skills/ce-code-review/SKILL.md` | Cross-model disable gate (execution spine step 3, Stage 3d) |
+| `tests/codex-skill-prompt-budget.test.ts` | `ce-quick-review` listed in `OVER_BUDGET` until it is split under Codex's 8000-byte cap |
+| `README.md` | Fork badge, install paths, skill counts, and a `Fork additions` row in "Skills at a glance" (the metadata test requires every skill to be named there) |
+| `skills/ce-plan/references/{structure,final-review,plan-sections}.md` | `ft-<ticket>` naming, Open Questions resolution pass |
+| `tests/skills/unified-plan-artifact-contract.test.ts` | Plan-filename test rewritten to pin `ft-<ticket>` |
+| `skills/ce-code-review/references/{review-output-template,finish-review}.md`, `docs/guides/ce-code-review.md` | Bottom-up action-list report |
+| `skills/ce-work/references/{review-findings-followup,shipping-workflow}.md`, `skills/lfg/**` | Read the actionable set instead of the removed Actionable Findings section |
+| `tests/review-skill-contract.test.ts`, `tests/fixtures/ce-code-review-stable-numbering.md` | Pin the action-list contract |
+| `skills/ce-code-review/SKILL.md` | Cross-model disable gate (spine step 5, Stage 3d); names `cross_model_review_mode` / `cross_model_peer` as inert |
+| `skills/ce-code-review/references/{select-and-route,depth-paths,finish-input,modes-and-output}.md` | Stage 3d route is always local; the focused depth path's independent read is a local `adversarial-reviewer`, not a peer; `peer` fields fixed to not-run |
 | `skills/ce-code-review/references/{dispatch-reviewers,finish-review,persona-catalog}.md` | Peer fold-in, promotion, and Coverage wording reconciled to in-process only |
 | `skills/ce-doc-review/SKILL.md` | Cross-model judgment pass disabled |
 | `skills/ce-doc-review/references/synthesis-and-presentation.md` | Header note marking the peer rules inert |
@@ -138,8 +147,8 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `skills/ce-work/SKILL.md` | Cross-model engine and `implementation_run:` recovery disabled |
 | `skills/ce-work/references/{execution-engines,implementation-loop}.md` | Engine removed from selection |
 | `skills/*/references/cross-model-*.md` | `DISABLED IN THIS FORK` banner |
-| `skills/ce-setup/references/config-template.yaml` + `.compound-engineering/config.local.example.yaml` | `cross_model_peer` and `work_engine_*` marked inert (keep the two byte-identical) |
-| `docs/skills/configuration.md` | Same two rows marked inert |
+| `skills/ce-setup/references/config-template.yaml` + `.compound-engineering/config.example.yaml` | `cross_model_*` and `work_engine_*` keys marked inert (keep the two byte-identical) |
+| `docs/guides/configuration.md` | Same two rows marked inert |
 | `tests/pov-skill-contract.test.ts` | 4 panel tests rewritten to pin the disabled contract |
 | `tests/skills/task-visibility-contract.test.ts` | Peer-task test rewritten to pin no-egress |
 | `tests/skills/ce-work-outcome-spine.test.ts` | 6 engine/recovery tests rewritten to pin native-only execution |
