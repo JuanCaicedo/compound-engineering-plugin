@@ -160,24 +160,26 @@ Process the 2 JSON returns (correctness + quality) into one deduplicated finding
 5. **Deduplicate.** Fingerprint each finding as `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. On a match, merge: keep the highest severity, keep the highest anchor, and list both reviewers on the item.
 6. **Separate pre-existing.** Pull findings with `pre_existing: true` into their own list. They are one line each and are never counted in the blocking total.
 7. **Promote testing gaps.** A `testing_gaps` entry that is not already covered by a finding and that names a test worth writing becomes its own action item (`Add a test for <behavior>`), severity P2 unless the untested path is a P0/P1 failure mode. Discard the rest. Do not emit a testing-gaps inventory.
-8. **Sort.** By severity (P0 first), then anchor (descending), then file path, then line number. Then override for prerequisites: if fixing one item is a precondition for another, move it ahead. Number the result `1..N` in that final display order.
+8. **Sort and number.** Sort by fix order: severity (P0 first), then anchor (descending), then file path, then line number. Number the result `1..N` in that fix order, so `#1` is the most urgent item. Do not reorder for prerequisites — state a dependency in the item's body instead. **The report then prints this list in reverse**, so `#1` is the last item on screen (Stage 5).
 
 ### Stage 5: Synthesize and present
 
-Read `references/review-output-template.md` from this skill's directory and assemble the report to its structure. The output is an **action list** — the reader will either apply these items to their own change or paste them as review feedback on someone else's:
+Read `references/review-output-template.md` from this skill's directory and assemble the report to its structure. The output is an **action list** — the reader will either apply these items to their own change or paste them as review feedback on someone else's.
+
+**The report is read bottom-up, so it is written in reverse order of importance.** When output ends the terminal viewport sits on the last line, so the last thing printed must be the thing to do first. Context goes at the top, where it is scrolled past; the action items go last. Render in this order:
 
 1. **Header.** Action-item count and blocking count, scope, intent.
-2. **Action items.** Numbered, bucketed `Fix before merge` (P0/P1) / `Worth fixing` (P2) / `Optional` (P3). Each item is an imperative title, a `file:line`, a `(severity, reviewer, confidence)` tag, and one to three sentences: what breaks, then the concrete fix. Omit empty buckets.
+2. **Notes.** At most 3 lines, and only per the template's Notes rule.
 3. **Not from this change.** Pre-existing findings, one line each.
-4. **Notes.** At most 3 lines, and only per the template's Notes rule.
+4. **Action items, bucketed by ascending urgency.** `Optional` (P3), then `Worth fixing` (P2), then `Fix before merge` (P0/P1) as the **final section of the report**. Each item is an imperative title, a `file:line`, a `(severity, reviewer, confidence)` tag, and one to three sentences: what breaks, then the concrete fix. Within a bucket, order by confidence anchor **ascending**, so the last item printed is the highest-confidence blocker. Omit empty buckets. Nothing informational follows the last item.
 
 **Fold the learnings researcher's output into the items** — it gets no section of its own. A past learning that applies to a specific item becomes a Notes line referencing that item's number; a learning that identifies a defect the personas missed becomes its own action item, subject to the same action gate; a learning with no action attached is dropped.
 
-**Before delivering, verify** the report contains no blockquote, no horizontal rule, no Coverage section, no Learnings section, and no verdict line. If the diff warrants reviewers this roster does not have (auth, migrations, public API contracts, CI/deploy gates), that is a single Notes line recommending `/ce-code-review` — use `$ce-code-review` when the active harness is Codex or otherwise documents dollar-prefixed invocation. Output exactly one form.
+**Before delivering, verify** the report contains no blockquote, no horizontal rule, no Coverage section, no Learnings section, and no verdict line, and that its **last line belongs to the highest-priority action item** (or, with no items at all, to the empty-state line), with every informational section above the buckets. If the diff warrants reviewers this roster does not have (auth, migrations, public API contracts, CI/deploy gates), that is a single Notes line recommending `/ce-code-review` — use `$ce-code-review` when the active harness is Codex or otherwise documents dollar-prefixed invocation. Output exactly one form.
 
 ### Headless output format
 
-In `mode:headless`, replace the interactive report with this envelope. Same action list, same numbering, plus the routing fields a downstream resolver needs:
+In `mode:headless`, replace the interactive report with this envelope. Same action list, same numbering, plus the routing fields a downstream resolver needs. This envelope is **parsed, not scrolled**, so it stays in ascending fix order (`[1]` first) — the reverse-order rule applies only to the interactive report:
 
 ```
 Quick review complete (headless mode).

@@ -63,15 +63,18 @@ describe("ce-pov subject-shape contract", () => {
     expect(phaseZero).toContain("Approach-set")
   })
 
-  test("keeps user-facing copy decision-oriented without exposing project internals", async () => {
+  // Fork delta (see FORK.md): an oracle or named-peer request, including one
+  // from a calling workflow, gets the solo POV plus the disabled note -- never a panel.
+  test("consumer adaptation preserves decision substance and answers oracle with the disabled note", async () => {
     const skill = await skillFile("SKILL.md")
-    const userCopy = between(skill, "## User-facing communication", "## Interaction Method")
-
-    expect(userCopy).toContain("person deciding")
-    expect(userCopy).toContain("decision, question, or recommendation")
-    expect(userCopy).toContain("internal workflow vocabulary")
-    expect(userCopy).toContain('"this project" or "the repository"')
-    expect(userCopy).toMatch(/never promote.*directory.*worktree.*checkout.*branch/i)
+    const consumer = between(skill, "## Consumer and interaction", "## Artifact Root")
+    expect(consumer).toContain("Lead with the decision")
+    expect(consumer).toContain("evidence, material tradeoffs, uncertainty, and conditions")
+    expect(consumer).toContain("return the result and leave continuation to its owner")
+    expect(consumer).not.toContain("still runs the panel")
+    expect(consumer).toContain("explicit oracle or named-peer request gets the solo POV plus the disabled-panel note")
+    expect(consumer).toContain("disabled in this fork")
+    expect(skill.split("---", 3)[1]).not.toContain("oracle panel")
   })
 
   test("intake and boundaries distinguish takes, findings reviews, and supplied approaches", async () => {
@@ -85,7 +88,9 @@ describe("ce-pov subject-shape contract", () => {
     expect(boundaries).toContain('"review this doc"')
     expect(boundaries).toContain('"what do you think of this doc?"')
     expect(boundaries).toContain("`ce-doc-review`")
-    expect(boundaries).toContain("Options supplied")
+    expect(boundaries).toContain("Options developed")
+    expect(boundaries).toContain("rough options needing development")
+    expect(boundaries).toContain("`ce-bakeoff`")
     expect(boundaries).toContain("`ce-ideate`")
   })
 
@@ -107,7 +112,7 @@ describe("ce-pov cross-model panel contract", () => {
   // the protocol and forbid egress, rather than describing how to run a panel.
   test("Phase 3 forbids the panel protocol and any egress", async () => {
     const skill = await skillFile("SKILL.md")
-    const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Follow-up")
+    const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Deliver and return")
 
     expect(phaseThree).toMatch(/disabled in this fork/)
     expect(phaseThree).toMatch(/do not read `references\/cross-model-panel\.md`/)
@@ -115,14 +120,25 @@ describe("ce-pov cross-model panel contract", () => {
     expect(phaseThree).toMatch(/Never make a proactive cross-check offer/)
   })
 
+  // The dormant panel reference is kept verbatim so upstream merges apply; this
+  // pins its content only, not reachability (Phase 3 forbids loading it).
+  test("the panel protocol owns authority, announcement, and the shared tree", async () => {
+    const panel = compact(await skillFile("references/cross-model-panel.md"))
+
+    expect(panel).toContain("authorizes the panel protocol's normal read-only consultation")
+    expect(panel).toContain("Announce the selected peers before dispatch")
+    expect(panel).toMatch(/ask only when a retry adds an unexpected recipient or intermediary/)
+    expect(panel).toContain("shared working tree")
+  })
+
   // Fork delta (see FORK.md): with no panel there is no freeze-then-reconcile
   // ordering left to guard -- only that the POV is formed before it is emitted.
   test("forms the independent POV before emitting it", async () => {
     const skill = await skillFile("SKILL.md")
-    const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Follow-up")
+    const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Deliver and return")
 
     const formSolo = phaseThree.indexOf("Form ce-pov's own independent POV")
-    const emitFinal = phaseThree.indexOf("Only then emit")
+    const emitFinal = phaseThree.indexOf("Only then deliver")
 
     expect(formSolo).toBeGreaterThan(-1)
     expect(emitFinal).toBeGreaterThan(formSolo)
@@ -134,7 +150,7 @@ describe("ce-pov cross-model panel contract", () => {
   test("a peer summons still gets the solo POV plus an explicit disabled note", async () => {
     const skill = await skillFile("SKILL.md")
     const panel = await skillFile("references/cross-model-panel.md")
-    const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Follow-up")
+    const phaseThree = between(skill, "### Phase 3: Point of View", "### Phase 4: Deliver and return")
 
     expect(phaseThree).toMatch(/Always produce the solo POV/)
     expect(phaseThree).toMatch(/do not silently ignore it/)
@@ -143,24 +159,31 @@ describe("ce-pov cross-model panel contract", () => {
     expect(panel).toMatch(/DISABLED IN THIS FORK/)
   })
 
-  test("follow-up covers every subject shape while retaining adoption tier gates", async () => {
+  test("continuation preserves authority without obligatory menus", async () => {
     const skill = await skillFile("SKILL.md")
-    const phaseFour = skill.slice(skill.indexOf("### Phase 4: Follow-up"))
-
-    expect(phaseFour).toContain("active subject shape")
-    expect(phaseFour).toContain("Document take")
-    expect(phaseFour).toContain("Approach-set position")
-    expect(phaseFour).toContain("For adoption subjects")
-    expect(phaseFour).toContain("Tier 1")
-    expect(phaseFour).toContain("Tier 2/3")
+    const followup = await skillFile("references/followup.md")
+    expect(skill).toContain("For a requested write-up or continuation, read `references/followup.md`")
+    expect(followup).toContain("original request authorized the downstream action")
+    expect(followup).toContain("result must resolve the decision needed for that action")
+    expect(followup).toContain("inherited scope")
+    expect(followup).toContain("non-destructive and otherwise authorized")
+    expect(followup).toContain("Do not add a menu or capture offer")
   })
 
-  test("warm invocations return a POV block without proactive follow-up", async () => {
+  test("returns missing context without interviewing the user", async () => {
     const skill = await skillFile("SKILL.md")
-    const phaseFour = skill.slice(skill.indexOf("### Phase 4: Follow-up"))
+    expect(skill).toContain("Blocked — missing context")
+    expect(skill).toContain("Do not interview the user")
+    expect(skill).toContain("The calling agent decides whether to ask for clarification")
+  })
 
-    expect(phaseFour).toContain("output the POV block")
-    expect(phaseFour).not.toContain("output the verdict block")
+  test("delegates only an unresolved understanding question and retains the judgment", async () => {
+    const skill = await skillFile("SKILL.md")
+    expect(skill).toContain("judgment requires an explanation of unresolved behavior or design rationale")
+    expect(skill).toContain("invoke `ce-explain`")
+    expect(skill).toContain("Use adequate current evidence instead of repeating an investigation")
+    expect(skill).toContain("Keep ownership of the judgment here")
+    expect(skill).not.toContain("mode:return-to-caller")
   })
 
   test("uses the JSON Schema draft supported by the Claude CLI", async () => {
@@ -297,6 +320,9 @@ describe("ce-pov cross-model panel contract", () => {
 
     expect(panel).toContain("host-provided markers and serving evidence")
     expect(panel).toContain("automatic discovery excludes")
+    expect(panel).not.toContain("non-egressing authentication or capability probe")
+    expect(panel).toContain("Do not preflight authentication there")
+    expect(panel).toContain("provider-capable worker attempt owns authentication truth")
     expect(panel).toContain("rather than guessing")
     expect(panel).toContain("ownership-checked `result`")
     expect(panel).toContain("`peer skip evidence`")
@@ -355,7 +381,7 @@ describe("ce-pov cross-model panel contract", () => {
 
   test("the worker rejects output without non-empty string position and reasoning", async () => {
     const worker = await skillFile("scripts/cross-model-pov.sh")
-    const usableOutputGate = between(worker, "out_missing_or_invalid()", "# Backward-compatible matrix")
+    const usableOutputGate = between(worker, "pov_shaped()", "# Backward-compatible matrix")
 
     expect(usableOutputGate).toContain('(.position|type)=="string" and (.position|length)>0')
     expect(usableOutputGate).toContain('(.reasoning|type)=="string" and (.reasoning|length)>0')

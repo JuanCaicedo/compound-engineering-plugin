@@ -37,7 +37,7 @@ fi
 # more than one page of threads can still resolve a comment to its parent
 # thread. Per-thread comments are still capped at 100 -- threads exceeding
 # that depth are not paginated here.
-tmp_threads=$(mktemp)
+tmp_threads=$(mktemp "${TMPDIR:-/tmp}/ce-pr-threads.XXXXXX")
 trap 'rm -f "$tmp_threads"' EXIT
 
 gh api graphql --paginate --slurp \
@@ -76,4 +76,9 @@ jq -e -n --slurpfile pages "$tmp_threads" --arg cid "$COMMENT_NODE_ID" '
   [$pages[0][].data.repository.pullRequest.reviewThreads.nodes[]
    | select(any(.comments.nodes[]; .id == $cid))]
   | if length == 0 then error("No thread found for comment \($cid)") else .[0] end
+  | . + {
+      root_comment_id: (.comments.nodes[0].url
+        | capture("discussion_r(?<id>[0-9]+)").id
+        | tonumber)
+    }
 '
