@@ -88,8 +88,8 @@ A small low-risk change runs correctness (and project-standards if applicable fi
 - **Always-on:** `correctness-reviewer`
 - **Standards:** `project-standards-reviewer` only when at least one criteria file governs a changed file (see [Repo-owned review criteria](#repo-owned-review-criteria))
 - **Generic conditional:** testing for changed tests/harnesses or meaningful runtime behavior with no corresponding test work; maintainability for large or structural work; agent-native for agent-facing files; learnings when an existing `docs/solutions/` corpus has plausible matches or the repo declares Compound Packs (local scope)
-- **Cross-cutting conditional:** security, performance, API contract, data migrations, reliability, adversarial, previous-comments. Each selected only when the diff touches its concern
-- **Stack-specific:** Julik frontend races, Swift/iOS. Only when the matching runtime domain is touched
+- **Cross-cutting conditional:** security, performance, API contract, data migrations, reliability, adversarial. Each selected only when the diff touches its concern; performance only when the change adds cost that grows with data or traffic
+- **Stack-specific:** Julik frontend races. Only when the matching runtime domain is touched
 - **CE conditional:** `deployment-verification-agent` for risky migration diffs. Schema drift and migration safety live on the `data-migration` persona
 
 Selection is agent judgment, not keyword matching. Instruction-prose files (Markdown skills, JSON schemas) are product code but skip runtime-focused reviewers. The exception is a silent-pass verification mechanism (a CI/CD gate, build/deploy step, coverage/lint gate, or test harness/mock that could mask production): even as a small config diff it gets the adversarial lens, because its risk is going green while the real thing is red, not blast radius.

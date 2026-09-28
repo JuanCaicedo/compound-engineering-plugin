@@ -43,7 +43,7 @@ When any skip rule applies, stop without dispatching reviewers. **Default mode:*
 If no skip rule applies, fetch PR metadata **without checkout**:
 
 ```
-gh pr view <number-or-url> --json title,body,baseRefName,headRefName,headRefOid,isCrossRepository,url,files,reviews,comments --jq '{title, body, baseRefName, headRefName, headRefOid, isCrossRepository, url, files: [.files[].path], hasPriorComments: ((.reviews | map(select(.state != "APPROVED" or .body != "")) | length) > 0 or (.comments | length) > 0)}'
+gh pr view <number-or-url> --json title,body,baseRefName,headRefName,headRefOid,isCrossRepository,url,files --jq '{title, body, baseRefName, headRefName, headRefOid, isCrossRepository, url, files: [.files[].path]}'
 ```
 
 Set `BASE:` to `pr:<number-or-url>` (logical marker — not a git SHA). Set `UNTRACKED:` from `git ls-files --others --exclude-standard` on the **current** checkout (usually empty during PR-remote review).
