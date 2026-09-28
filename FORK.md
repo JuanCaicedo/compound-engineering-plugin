@@ -155,6 +155,17 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 
 If an upstream sync adds a **new** cross-model surface, it arrives ungated — the gates above are prose, not a switch, so nothing stops a newly added path. Grep for it after every sync (see "After Syncing").
 
+### Eval refs that live only on upstream branches
+
+`tests/skill-eval-cell/catalog.ts` pins commit SHAs, and upstream sometimes pins one that exists only on an unmerged upstream branch. The fork's CI cannot see those, so `catalog.test.ts` fails with `<skill> missing at <sha>`. After a sync, find any such ref and push it to the fork as a tag (CI checks out with `fetch-depth: 0`, which includes tags):
+
+```bash
+for r in $(grep -ohE '"[0-9a-f]{40}"' tests/skill-eval-cell/*.ts | tr -d '"' | sort -u); do
+  git merge-base --is-ancestor "$r" HEAD || echo "$r"
+done
+git tag upstream-pin/<short-sha> <sha> && git push origin upstream-pin/<short-sha>
+```
+
 ### Versions
 
 Do not hand-bump versions in `plugin.json` or `marketplace.json` — upstream's release automation owns them, and hand edits cause version drift. Let the merge bring whatever upstream set.
