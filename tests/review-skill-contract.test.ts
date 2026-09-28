@@ -1222,6 +1222,13 @@ describe("ce-code-review contract", () => {
     expect(catalog).toMatch(/`performance`[^\n]*When unsure, skip it/)
   })
 
+  test("ce-simplify-code dispatches the efficiency reviewer only when selected", async () => {
+    const skill = await readRepoFile("skills/ce-simplify-code/SKILL.md")
+    expect(skill).toContain("Add the efficiency reviewer only when")
+    expect(skill).toContain("`references/personas/efficiency-reviewer.md` (only when selected above)")
+    expect(skill).not.toMatch(/all three review outcomes|Launch 3 review agents/)
+  })
+
   test("stack-specific reviewer agents follow the structured findings contract", async () => {
     const reviewers = [
       {
