@@ -1167,9 +1167,7 @@ describe("ce-code-review contract", () => {
       "data-migration-reviewer",
       "reliability-reviewer",
       "adversarial-reviewer",
-      "previous-comments-reviewer",
       "julik-frontend-races-reviewer",
-      "swift-ios-reviewer",
       "agent-native-reviewer",
     ]
 
@@ -1193,7 +1191,7 @@ describe("ce-code-review contract", () => {
       "skills/ce-code-review/references/persona-catalog.md",
     )
 
-    for (const agent of ["julik-frontend-races-reviewer", "swift-ios-reviewer"]) {
+    for (const agent of ["julik-frontend-races-reviewer"]) {
       expect(content).toContain(agent)
       expect(catalog).toContain(agent)
     }
@@ -1212,15 +1210,30 @@ describe("ce-code-review contract", () => {
     expect(content).not.toContain("## Language-Agnostic")
   })
 
+  // Fork edit (see FORK.md): swift-ios and previous-comments are removed, and
+  // performance runs only when cost grows with data or traffic.
+  test("fork roster: removed reviewers stay gone and performance defaults to skip", async () => {
+    const content = await readCodeReviewRuntimeContract()
+    const catalog = await readRepoFile("skills/ce-code-review/references/persona-catalog.md")
+    for (const removed of ["swift-ios", "previous-comments", "hasPriorComments"]) {
+      expect(content).not.toContain(removed)
+      expect(catalog).not.toContain(removed)
+    }
+    expect(catalog).toMatch(/`performance`[^\n]*When unsure, skip it/)
+  })
+
+  test("ce-simplify-code dispatches the efficiency reviewer only when selected", async () => {
+    const skill = await readRepoFile("skills/ce-simplify-code/SKILL.md")
+    expect(skill).toContain("Add the efficiency reviewer only when")
+    expect(skill).toContain("`references/personas/efficiency-reviewer.md` (only when selected above)")
+    expect(skill).not.toMatch(/all three review outcomes|Launch 3 review agents/)
+  })
+
   test("stack-specific reviewer agents follow the structured findings contract", async () => {
     const reviewers = [
       {
         path: personaPromptPath("julik-frontend-races-reviewer"),
         reviewer: "julik-frontend-races",
-      },
-      {
-        path: personaPromptPath("swift-ios-reviewer"),
-        reviewer: "swift-ios",
       },
     ]
 
@@ -1255,9 +1268,7 @@ describe("ce-code-review contract", () => {
       "data-migration-reviewer",
       "reliability-reviewer",
       "adversarial-reviewer",
-      "previous-comments-reviewer",
       "julik-frontend-races-reviewer",
-      "swift-ios-reviewer",
     ]
 
     for (const persona of personas) {

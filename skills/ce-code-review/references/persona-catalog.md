@@ -24,28 +24,26 @@ These reviewers are broadly applicable but not automatically useful. Spawn one o
 | `agent-native` | `agent-native-reviewer` | Agent-facing features or surfaces: skills, agents, prompts, commands, tools, MCP, or a product capability expected to be agent-accessible. |
 | `learnings` | `learnings-researcher` | The change has institutional knowledge to be checked against: an existing `<root>/solutions/` corpus has a plausible path/title match for the changed modules or patterns (run a cheap search first; corpus existence alone does not select it), or, in local scope, the repo's CE config declares Compound Packs (Stage 1b `declared_packs`, semantics in `references/scope.md`). Declared packs select it without a pre-search; the persona matches every rule's `applies_when` itself. |
 
-## Conditional (7 personas)
+## Conditional (6 personas)
 
 Spawn one of these when you identify relevant patterns in the diff. Read the full diff and reason about selection -- this is agent judgment, not keyword matching.
 
 | Persona | Agent | Select when diff touches... |
 |---------|-------|---------------------------|
 | `security` | `security-reviewer` | Auth middleware, public endpoints, user input handling, permission checks (including feature-flag or entitlement gates that control whether functionality is reachable), secrets management |
-| `performance` | `performance-reviewer` | Concrete performance-sensitive behavior: database/ORM query shape, algorithmic complexity, large loop-heavy transforms, batching/fan-out, or cache policy with material resource impact. Async/concurrent code or a cache data structure alone does not select it when correctness/reliability already own the changed semantics. |
+| `performance` | `performance-reviewer` | Work whose cost grows with data or traffic enough to be felt in production: database/ORM query shape (N+1, unbounded reads), algorithmic complexity over inputs that can be large, batching/fan-out, or cache policy with material resource impact. Most diffs do not select it; ordinary data access, async/concurrent code, or a cache data structure alone is not enough. When unsure, skip it. |
 | `api-contract` | `api-contract-reviewer` | An externally consumed boundary changes: route/request/response definitions, serializers, published event schemas, API versioning, or a public package signature with evidenced downstream callers. A new or changed exported symbol inside one module is insufficient by itself. |
 | `data-migration` | `data-migration-reviewer` | Migration files, schema dumps (`db/schema.rb`, `structure.sql`), backfill scripts, data transformations — **not** model/query-only changes without migration artifacts |
 | `reliability` | `reliability-reviewer` | Error handling, retry logic, circuit breakers, timeouts, background jobs, async handlers, health checks |
 | `adversarial` | `adversarial-reviewer` | >=50 changed code lines; auth/payments; persistence writes or event publication; retry/partial-failure or concurrency/ordering semantics; external APIs; or a silent-pass verification mechanism. Always runs in-process — cross-model peer review is disabled in this fork. |
-| `previous-comments` | `previous-comments-reviewer` | **PR-only AND comment-gated.** Reviewing a PR that has existing review comments or review threads from prior review rounds. Skip entirely when no PR metadata was gathered in Stage 1, OR when Stage 1's `hasPriorComments` flag is false (no `reviews` and no `comments` on the PR). |
 
-## Stack-Specific Conditional (2 personas)
+## Stack-Specific Conditional (1 persona)
 
 These reviewers cover specialized runtime behavior. Structural and maintainability concerns belong to the conditional `maintainability` persona — do not spawn extra stack reviewers for philosophy or convention-only passes.
 
 | Persona | Agent | Select when diff touches... |
 |---------|-------|---------------------------|
 | `julik-frontend-races` | `julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM event wiring, timers, async UI flows, animations, or frontend state transitions with race potential |
-| `swift-ios` | `swift-ios-reviewer` | Swift files, SwiftUI views, UIKit controllers, `.entitlements`, `PrivacyInfo.xcprivacy`, `.xcdatamodeld`, `Package.swift`, `Package.resolved`, storyboards, XIBs, or semantic build-setting / target-membership / code-signing changes in `.pbxproj` |
 
 ## CE Conditional Local Prompt Assets (migration-specific)
 

@@ -1,14 +1,14 @@
 # `ce-simplify-code`
 
-> Refine recently changed code. Three reviews look for reuse, quality, and efficiency issues; the skill applies the worthwhile ones and checks that behavior did not change.
+> Refine recently changed code. Reviews look for reuse and quality issues, plus efficiency when the code runs often or over data that can grow; the skill applies the worthwhile ones and checks that behavior did not change.
 
 A finished change usually carries debt you could not see while writing it: a helper that already exists in the repo, copy-paste with a small variation, string compares where an enum exists, names that only make sense if you followed the chat, two API calls that could run together. One "review and improve" prompt finds the obvious items and misses the ones that need a search across the tree.
 
-`ce-simplify-code` runs three focused reviews of the same scope instead:
+`ce-simplify-code` runs focused reviews of the same scope instead:
 
 - **Reuse** searches for existing utilities, stdlib/runtime primitives, and platform guarantees the new code reimplements
 - **Quality** flags hacky structure, dead code, context-only names, leftover pre-release compatibility, and comments that only restate the code
-- **Efficiency** looks for extra work, missed concurrency, hot-path bloat, and no-op updates
+- **Efficiency** looks for extra work, missed concurrency, hot-path bloat, and no-op updates. It runs only when the changed code sits on a hot path, loops or queries over data that can grow, repeats I/O, or holds long-lived resources; most scopes skip it
 
 Collected review agents are released before the next batch or handoff when the harness provides caller-owned cleanup. When it does not, the review reports retained-capacity limitations without claiming that completion freed a slot.
 
@@ -65,7 +65,7 @@ Safety checks stay. The skill will not remove trust-boundary validation, data-lo
 
 ## Worked example
 
-You have been writing a notification-mute feature. Before the PR you run `/ce-simplify-code`. It takes the branch diff vs `origin/main` and runs the three reviews.
+You have been writing a notification-mute feature. Before the PR you run `/ce-simplify-code`. It takes the branch diff vs `origin/main` and runs reuse and quality. The diff changes a request handler and a polling loop, so efficiency runs too.
 
 Reuse finds that `formatDuration` near-duplicates `lib/utils/formatTime.ts`, path handling should use `path.join`, and a custom env check should use `isProduction()`. Quality finds string compares against `"active"` / `"paused"` where `SubscriptionStatus` already exists, a nested ternary that early-returns cleanly, an unused export, and a comment restating the function name. Efficiency finds two API calls in one handler that can run together and a polling loop that writes the same state every tick.
 

@@ -20,14 +20,13 @@ Reviewer personas are selected in layers. The persona catalog in `references/per
 **Cross-cutting conditional (per diff):**
 
 - `security-reviewer` — auth, public endpoints, user input, permissions (including feature-flag or entitlement gates controlling reachability)
-- `performance-reviewer` — DB queries, data transforms, caching, async
+- `performance-reviewer` — only when the diff adds work whose cost grows with data or traffic enough to be felt in production: query shape (N+1, unbounded reads, missing pagination), algorithmic complexity over inputs that can be large, batching or fan-out, or cache policy with material resource impact. Most diffs do not select it: ordinary data access, a new async call, or a small loop is not enough. When unsure, skip it; performance problems are fixed when they are observed.
 - `api-contract-reviewer` — routes, serializers, type signatures, versioning
 - `data-migration-reviewer` — migration files / schema dumps / backfills (see the `data-migration` spawn gate in Stage 3)
 - `reliability-reviewer` — error handling, retries, timeouts, background jobs
 - `adversarial-reviewer` lens — >=50 changed code lines, or auth / payments / persistence writes / event publication / retry or concurrency semantics / external APIs, or a **silent-pass verification mechanism** regardless of size. Satisfy this lens with the in-process `adversarial-reviewer`; cross-model peer review is disabled in this fork.
-- `previous-comments-reviewer` — PR with existing review comments (PR-only, comment-gated)
 
-**Stack-specific conditional (per diff):** `julik-frontend-races-reviewer` (Stimulus/Turbo, DOM events, async UI) and `swift-ios-reviewer` (Swift/SwiftUI/UIKit, entitlements, Core Data, `.pbxproj`).
+**Stack-specific conditional (per diff):** `julik-frontend-races-reviewer` (Stimulus/Turbo, DOM events, async UI).
 
 **CE conditional (migration-specific):** local prompt asset `deployment-verification-agent` — deployment checklist + rollback when the migration gate applies and the change is risky.
 
@@ -37,7 +36,7 @@ A full review always spawns correctness, adds project-standards when applicable 
 
 ## Language-Aware Conditionals
 
-Select stack-specific reviewers only when the diff touches runtime behavior they specialize in (async UI races, iOS/Swift lifecycle), never mechanically from file extensions alone. The trigger is meaningful changed behavior in that stack's runtime domain. Structural quality (complexity deletion, 1k-line regressions, type-boundary leaks) belongs to the conditional `maintainability-reviewer`; do not spawn extra reviewers for language conventions, philosophy, or "strict bar" passes.
+Select stack-specific reviewers only when the diff touches runtime behavior they specialize in (async UI races), never mechanically from file extensions alone. The trigger is meaningful changed behavior in that stack's runtime domain. Structural quality (complexity deletion, 1k-line regressions, type-boundary leaks) belongs to the conditional `maintainability-reviewer`; do not spawn extra reviewers for language conventions, philosophy, or "strict bar" passes.
 
 ### Stage 3: Select reviewers
 
@@ -48,13 +47,6 @@ Read the diff and file list from Stage 1 and the helper JSON from Stage 1b. Corr
 Treat changed persistence writes, event publication, retry/partial-failure behavior, and concurrency or ordering semantics as concrete data-mutation/external-boundary triggers for `adversarial`; do not require a framework-specific database or HTTP keyword.
 
 **Silent-pass verification mechanisms — select adversarial for the guard itself.** When the change *is* a verification mechanism — CI/CD gating logic, merge-blocking checks, build/deploy steps, coverage/lint gates, or test infrastructure/mocks that could mask production — its risk isn't blast radius, it's fidelity: it can go green while the real thing is red, so the exact "can this false-pass?" lens must run. Select `adversarial` for such a change regardless of changed-line count and independent of the auth/data heuristics. The selection question: "If this mechanism is wrong, does it fail loudly or silently pass? A silent-pass guard gets the adversarial lens regardless of size." Scope limit: this applies to the *mechanism* (gating/CI/build/deploy/harness changes), not to ordinary per-feature test assertions — a unit test asserting business logic is the `testing` reviewer's job, not adversarial's.
-
-**`previous-comments` is PR-only AND comment-gated.** Only select this persona when both conditions hold:
-
-1. Stage 1 gathered PR metadata (PR number or URL was provided as an argument, or `gh pr view` returned metadata for the current branch).
-2. `hasPriorComments` from Stage 1 is true (the PR has at least one review submission or issue comment).
-
-Skip it for standalone branch reviews with no associated PR, and skip it for PRs with no prior feedback yet -- there is nothing for the persona to verify, and a spawned subagent that returns empty findings still costs the full subagent startup overhead (persona spec, diff, schema, plus its own gh calls).
 
 Stack-specific personas are additive when runtime behavior warrants them. A Hotwire UI change may warrant `julik-frontend-races`; a TypeScript boundary change may warrant `api-contract` only when the diff changes an externally consumed contract, not merely because it exports a symbol.
 
