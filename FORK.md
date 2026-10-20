@@ -133,6 +133,7 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `tests/release-metadata.test.ts` | Skill count (upstream's number plus the fork's 3) |
 | `skills/ce-code-review/references/{persona-catalog,select-and-route,scope}.md`, `scripts/review-scope.py`, `skills/ce-simplify-code/SKILL.md`, `docs/guides/{ce-code-review,ce-simplify-code}.md` | Trimmed roster; performance and efficiency skip by default. If upstream edits a removed persona file, keep it deleted |
 | `tests/codex-skill-prompt-budget.test.ts` | `ce-quick-review` listed in `OVER_BUDGET` until it is split under Codex's 8000-byte cap |
+| `docs/guides/README.md` | `Fork Additions` table at the end of Workflow Utilities, before "See also" |
 | `README.md` | Fork badge, install paths, skill counts, and a `Fork additions` row in "Skills at a glance" (the metadata test requires every skill to be named there) |
 | `skills/ce-plan/references/{structure,final-review,plan-sections}.md` | `ft-<ticket>` naming, Open Questions resolution pass |
 | `tests/skills/unified-plan-artifact-contract.test.ts` | Plan-filename test rewritten to pin `ft-<ticket>` |
@@ -147,7 +148,7 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `skills/ce-pov/SKILL.md` | Panel disabled; description and `argument-hint` reconciled |
 | `skills/ce-pov/references/invocation.md` | `oracle` / named-peer wording reconciled |
 | `skills/ce-work/SKILL.md` | Cross-model engine and `implementation_run:` recovery disabled |
-| `skills/ce-work/references/{execution-engines,implementation-loop}.md` | Engine removed from selection |
+| `skills/ce-work/references/{execution-engines,implementation-loop,execution-strategy}.md` | Engine removed from selection; `execution-engines.md` keeps upstream's "two implementation engines" wording (tests pin it) and says only native is selectable |
 | `skills/*/references/cross-model-*.md` | `DISABLED IN THIS FORK` banner |
 | `skills/ce-setup/references/config-template.yaml` + `.compound-engineering/config.example.yaml` | `cross_model_*` and `work_engine_*` keys marked inert (keep the two byte-identical) |
 | `docs/guides/configuration.md` | Same two rows marked inert |

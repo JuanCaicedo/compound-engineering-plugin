@@ -99,8 +99,10 @@ describe("ce-work native characterization", () => {
 
     expect(engineGate).toContain("references/execution-engines.md")
     expect(engines).toContain("inline/subagent")
-    expect(engines).toContain("goal-mode")
-    expect(engines).toContain("dynamic-workflow")
+    // Two engines remain; goal-mode and dynamic-workflow only emitted paste prompts.
+    expect(engines).toContain("two implementation engines")
+    expect(engines).not.toContain("goal-mode")
+    expect(engines).not.toContain("dynamic-workflow")
     expect(engines).toContain("inline/subagent flow in `references/execution-strategy.md`")
     expect(engines).not.toContain("inline/subagent flow in `SKILL.md`")
     expect(strategy).toMatch(/\*\*Inline\*\* \| Trivial work/)
@@ -154,8 +156,9 @@ describe("ce-work native characterization", () => {
     expect(dispatch).toContain("**bounded unit packet**")
     expect(dispatch).toContain("A downstream worker may narrow that unit and authority, never broaden either")
     expect(dispatch).toContain("Do not send \"read the whole plan\"")
-    expect(dispatch).toContain("**Do not commit.**")
-    expect(dispatch).toContain("**orchestrator owns staging, committing, and the authoritative test runs**")
+    expect(dispatch).toContain("**No canonical commits.**")
+    expect(dispatch).toContain("**orchestrator owns staging, the canonical commits, and the authoritative test runs**")
+    expect(dispatch).toContain("A worker in the shared workspace runs no Git command that writes the index")
     expect(dispatch).toContain("Review, test, commit, and retire each unit in dependency order — the orchestrator owns commits")
   })
 
@@ -231,20 +234,25 @@ describe("ce-work cross-model engine contract", () => {
     expect(engines).toContain("recorded provenance")
     expect(engines).toMatch(/incidental mentions/i)
     expect(engines).toContain("work_engine_mode")
-    expect(engines).toContain("work_engine_preferences")
-    expect(engines).toContain("`harness`")
-    expect(engines).toContain("optional `model`")
-    // Fork delta (see FORK.md): upstream's per-harness external-worker effort is inert.
-    expect(engines).toContain("work_engine_effort")
-    expect(engines).toContain("`work_engine_effort` is **inert in this fork")
-    expect(engines).not.toContain("The adapter script owns which levels each route accepts")
-    expect(engines).toContain("configured default")
-    expect(engines).toContain("ordered candidate")
-    expect(engines).toContain("continue to the next candidate")
-    expect(engines).toContain("equivalent to the current host")
+    expect(engines).toContain("strict Composer")
+    expect(engines).toContain("caller Codex")
+    expect(engines).toContain("config Cursor")
     // Fork delta (see FORK.md): the external engine is off, whatever config says.
     expect(engines).toContain("Cross-model execution is disabled in this fork")
-    expect(engines).toContain("Not selectable under any configuration")
+    expect(engines).toContain("never load the cross-model reference")
+    expect(engines).toContain("`work_engine_effort` are **inert in this fork")
+    expect(engines).not.toContain("`off` disables only the standing preference")
+    // The dormant cross-model reference keeps upstream's route schema for merge fidelity.
+    const external = await readRepoFile("skills/ce-work/references/cross-model-execution.md")
+    expect(external).toContain("DISABLED IN THIS FORK")
+    expect(external).toContain("work_engine_preferences")
+    expect(external).toContain("`harness`")
+    expect(external).toContain("optional `model`")
+    expect(external).toContain("work_engine_effort")
+    expect(external).toContain("configured default")
+    expect(external).toContain("ordered candidate")
+    expect(external).toContain("continue to the next candidate")
+    expect(external).toContain("equivalent to the current host")
   })
 
   // Fork delta (see FORK.md): nothing is exported, so there is no bounded brief
@@ -267,9 +275,10 @@ describe("ce-work cross-model engine contract", () => {
     const engines = await readRepoFile("skills/ce-work/references/execution-engines.md")
     const protocol = await readRepoFile("skills/ce-work/references/cross-model-execution.md")
 
-    expect(engines).toContain("attempt the documented adapter recipe first")
-    expect(engines).toContain("local CLI help or version")
-    expect(engines).toContain("same sanctioned harness/model family")
+    expect(engines).not.toContain("adapter recipe")
+    expect(protocol).toContain("Attempt the documented adapter recipe first")
+    expect(protocol).toContain("Local CLI help or version")
+    expect(protocol).toContain("same sanctioned harness/model family")
     expect(protocol).toContain("first qualified candidate")
     expect(protocol).toContain("Before egress")
     expect(protocol).toContain("After dispatch starts")
@@ -302,7 +311,7 @@ describe("ce-work cross-model engine contract", () => {
   test("keeps the caller carrier implementation-only and exactly four fields", async () => {
     const triage = await readTriage()
     const engines = await readRepoFile("skills/ce-work/references/execution-engines.md")
-    const carrier = sliceSection(engines, "### Typed caller binding", "### Target and identity vocabulary")
+    const carrier = sliceSection(engines, "### Typed caller binding", "### Standing configuration")
 
     expect(triage).toContain("exactly four fields")
     for (const field of ["mode", "target", "model", "source"]) {
@@ -386,7 +395,7 @@ describe("ce-work cross-model engine contract", () => {
     expect(protocol).toContain("claude")
     expect(protocol).toContain("grok")
     expect(protocol).toContain("Fixed controller route tokens")
-    expect(protocol).toContain("`codex`, `claude`, `grok-cli`, `cursor`, `composer`, `grok-cursor`, or `opencode`")
+    expect(protocol).toContain("`codex`, `claude`, `grok-cli`, `cursor`, `composer`, `grok-cursor`, `opencode`, or `antigravity`")
   })
 
   test("defines prefer, require, fixed-recipient sanction, and restriction failure", async () => {
@@ -421,7 +430,6 @@ describe("ce-work cross-model engine contract", () => {
     expect(protocol).toContain("`git commit`")
     expect(protocol).toContain("Git admin dir")
     expect(protocol).toContain("workspace-write")
-    expect(protocol).toContain("--sandbox enabled")
     expect(protocol).toContain("never required")
     expect(protocol).toContain("Leave the completed working tree uncommitted")
     expect(protocol).toContain("Do not instruct it to run `git add`")
@@ -539,7 +547,7 @@ describe("ce-work cross-model engine contract", () => {
     expect(serial).not.toContain("CE_WORK_MODEL_OVERRIDE_TARGET")
     expect(serial).toContain("one bounded unit packet")
     expect(serial).toContain("exact plural keys `route`, `intermediaries`, and `restrictions`")
-    expect(serial).toContain("direct `codex`, `claude`, `grok-cli`, and `cursor` routes use `intermediaries: []`")
+    expect(serial).toContain("direct `codex`, `claude`, `grok-cli`, `cursor`, `opencode`, and `antigravity` routes use `intermediaries: []`")
     expect(serial).toContain("Write the packet source directly to OS temp outside the canonical checkout")
     expect(serial).toContain("never draft it inside the repository and move or copy it later")
     expect(serial).toContain("quoting `$(...)` as a direct argument does not expand it")
@@ -708,6 +716,23 @@ describe("ce-work cross-model engine contract", () => {
 })
 
 describe("ce-work implementation evidence characterization", () => {
+  test("incremental commits honor project message conventions instead of imposing a conventional prefix", async () => {
+    const implementationLoop = await readRepoFile("skills/ce-work/references/implementation-loop.md")
+    const incremental = sliceSection(implementationLoop, "2. **Incremental Commits**", "3. **Simplify as You Go**")
+    const commit = await readRepoFile("skills/ce-commit/SKILL.md")
+    const precedence = commit.match(/\*\*Convention\*\* — (.*?\.) When/)?.[1]
+
+    expect(precedence).toBeDefined()
+    expect(incremental).toContain(precedence!)
+    expect(incremental).toContain("User override wins.")
+    expect(incremental).not.toMatch(/Commit with conventional message|use clean conventional messages|git commit -m "feat\(scope\):/)
+    expect(incremental).toContain("git commit -F <message-file> -- <files related to this logical unit>")
+    expect(incremental).toContain("**Native Git commit workflow:**")
+    expect(incremental).not.toContain("git commit -m")
+    expect(incremental).toContain("Incremental commits add no plugin-generated attribution.")
+    expect(incremental).not.toContain("Incremental commits omit attribution footers.")
+  })
+
   test("loads the extracted protocol only at the implementation gate", async () => {
     const skill = await readRepoFile("skills/ce-work/SKILL.md")
     const implementationLoop = await readRepoFile("skills/ce-work/references/implementation-loop.md")
@@ -726,7 +751,6 @@ describe("ce-work implementation evidence characterization", () => {
   test("retains every task evidence and verification stop across relocation", async () => {
     const contract = await readImplementationContract()
     const orderedStops = [
-      "Mark task as in-progress",
       "Choose the evidence strategy for this task before changing behavior",
       "verify the expected failure or baseline capture before changing production code",
       "Implement following existing conventions",
@@ -734,8 +758,8 @@ describe("ce-work implementation evidence characterization", () => {
       "Run tests after changes",
       "Assess testing coverage",
       "Record verification evidence for the task",
-      "Mark task as completed",
-      "Evaluate for incremental commit",
+      "mark the task completed",
+      "decide whether to commit it",
     ]
 
     let previous = -1

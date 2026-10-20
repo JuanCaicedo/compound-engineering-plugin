@@ -28,7 +28,7 @@ A prior brainstorm helps but is never required. You can invoke `ce-plan` directl
 | What does it do? | Researches context, captures decisions and scope, breaks work into atomic units with stable IDs, enumerates test scenarios per unit, then auto-strengthens weak sections via a confidence check |
 | When to use it | Requirements are ready and execution guardrails are needed; solo planning when the task is already clear; non-software multi-step tasks; investigative questions that need a structured answer |
 | What it produces | Software: a unified plan in `docs/plans/YYYY-MM-DD-HHMM-<type>-<name>-plan.md` (local wall-clock write time, atomically reserved with a numeric collision suffix when needed). Brainstorm-sourced plans gain implementation planning in place. Non-software plan-seeking writes a domain plan (or publishes to Proof). Answer-seeking delivers the answer in chat with no plan file. |
-| What's next | Software: start `ce-work` (recommended), run it as a `/goal` when the host supports that, decide on remaining review items or prototype a remaining feel-question, create a tracked issue, or open an HTML plan in the browser. Non-software: save, publish to Proof, or both. Answer-seeking: the answer is the end. |
+| What's next | Software: start `ce-work` (recommended), decide on remaining review items or prototype a remaining feel-question, create a tracked issue, or open an HTML plan in the browser. Non-software: save, publish to Proof, or both. Answer-seeking: the answer is the end. |
 
 ---
 
@@ -113,11 +113,17 @@ This matters because `ce-work` references units by U-ID across plan edits. Renum
 
 When the plan is sourced from a `ce-brainstorm` requirements-only unified plan, identifiers flow through in the same file. Requirements (R-IDs) stay in the Product Contract. Actors (A-IDs) carry forward when they affect behavior or permissions. Key Flows (F-IDs) cite into the units that realize them. Acceptance Examples (AE-IDs) cite into test scenarios (`Covers AE3. <scenario>`). Every Product Contract section is checked against the Planning Contract before finalization.
 
-Every feature-bearing unit enumerates test scenarios from each applicable category: happy path, edge cases (boundaries, empty/nil, concurrency), error/failure paths, and integration. Each scenario names the input, action, and expected outcome.
+Every feature-bearing unit enumerates test scenarios for the behavior it builds: happy path, plus edge cases, error handling, and integration where the unit has them. A category is not a list of failures to add handling for. Each scenario names the input, action, and expected outcome.
+
+### Sizing what gets built
+
+A plan starts from how the result will be used: who runs or depends on it, what they see when it works, and who finds out when it fails. A mechanism the request did not ask for, such as a guard, retry, recovery path, mode, or abstraction, is built only when an existing contract requires it, when leaving it out causes harm nobody would catch in time, or when adding it later would be expensive (stored data, a public interface, money, security). A concern that fails that test, whether it came from research, a specialist agent, or review, is listed as considered and not built, with the reason and what would change the call. When the call is unclear, the mechanism is built.
+
+The test sizes only what the request did not ask for. A safeguard may not delay, gate, cap, or skip part of a requested behavior; a real conflict between the two goes to Open Questions for the requester. `ce-doc-review`'s scope-guardian applies the same test to every plan in both directions: it flags committed mechanisms that fail it, left-out items that pass it, and requested behavior the plan narrowed.
 
 ### Confidence check, then research that matches intent
 
-After writing a Durable plan, `ce-plan` scores sections, picks the weakest ones, dispatches targeted sub-agents (correctness for units, data integrity for migrations, architecture for key technical decisions), and folds findings back into the plan. During generation this runs in auto mode. When you ask to deepen an existing plan, findings are presented one by one for accept/reject.
+After writing a Durable plan, `ce-plan` scores sections, picks the weakest ones, dispatches targeted sub-agents (correctness for units, data integrity for migrations, architecture for key technical decisions), and judges each finding by the same sizing test before folding it into the plan. During generation this runs in auto mode. When you ask to deepen an existing plan, findings are presented one by one for accept/reject.
 
 Research earlier in the run is decided by intent, not a single on/off switch. Local research (repo patterns, `docs/solutions/` learnings, and any [Compound Pack](./packs.md) declared in the repo's `packs` config, whose matching rules land in the plan with a `(pack: <id>, <path>)` citation) always runs in parallel, plus spec-flow analysis for Standard and Deep plans. An explicit request ("research competitors", "which library") always triggers external research. Implicit signals can too, when local patterns are thin or the recommendations hinge on an unsettled external option set. Implementation-guidance questions route to framework docs; landscape questions route to a web scan; mixed requests run the scan first, then docs on the shortlist.
 
@@ -144,7 +150,7 @@ It dispatches research in parallel (repo analyst, learnings researcher). Local p
 
 The plan is written. The confidence check finds `Risks & Dependencies` thin on a mute-leak risk and one unit's tests missing permission edge cases, dispatches reviewers, and folds the findings back. The plan gets stamped with a `deepened:` date.
 
-Document review then runs non-interactively. When planning includes permission to revise the draft, the planner passes that permission to the reviewer for corrections needed to satisfy the established Product Contract. The reviewer applies eligible corrections and preserves product choices and constraints. The planner checks the returned concerns against the full planning context before handing off. It resolves what it can within the request, discards weak or already-satisfied claims, and builds the menu from what still needs approval or user judgment. Reviewer output remains available as evidence; it is not forwarded unchanged. The menu offers: start `ce-work` (recommended), run it as a `/goal` when the host supports that, decide on remaining review items or prototype a remaining feel-question, create a tracked issue, or open the file if it is HTML. There is no Proof option on the software menu and no pause option. The file is already saved.
+Document review then runs non-interactively. When planning includes permission to revise the draft, the planner passes that permission to the reviewer for corrections needed to satisfy the established Product Contract. The reviewer applies eligible corrections and preserves product choices and constraints. The planner checks the returned concerns against the full planning context before handing off. It resolves what it can within the request, discards weak or already-satisfied claims, and builds the menu from what still needs approval or user judgment. Reviewer output remains available as evidence; it is not forwarded unchanged. The menu offers: start `ce-work` (recommended), decide on remaining review items or prototype a remaining feel-question, create a tracked issue, or open the file if it is HTML. There is no Proof option on the software menu and no pause option. The file is already saved.
 
 ---
 
@@ -269,7 +275,7 @@ Use the deepen fast path: `/ce-plan deepen <plan>`. It runs interactively, prese
 Disallowed by default. Pseudo-code and DSL grammars are permitted in High-Level Technical Design when they communicate the shape of the solution as directional guidance. Exact method signatures, imports, framework-specific syntax, and step-by-step shell sequences do not belong in plans.
 
 **Can I publish a software plan to Proof from the post-plan menu?**
-No. Proof is on the non-software wrap-up menu (save, publish, or both). Software next steps are `ce-work`, `/goal` when supported, review or prototype, create an issue, or open an HTML file. Publish a markdown plan later with `/ce-proof` if you want a shareable link.
+No. Proof is on the non-software wrap-up menu (save, publish, or both). Software next steps are `ce-work`, review or prototype, create an issue, or open an HTML file. Publish a markdown plan later with `/ce-proof` if you want a shareable link.
 
 ---
 
