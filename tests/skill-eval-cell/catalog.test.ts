@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import {
   ISSUE_1482_BASE_REF,
@@ -8,9 +9,11 @@ import {
   PRE_SWEEP_REF,
   SCENARIOS,
   WAVE1,
+  scenarioById,
   scenarioHasDecisionGrade,
 } from "./catalog"
 import { REPO_ROOT, WORKTREE_REF } from "./extract"
+import { gradeHost } from "./grade"
 
 const skillsDir = path.join(REPO_ROOT, "skills")
 
@@ -26,8 +29,14 @@ function gitPathExists(ref: string, gitPath: string): boolean {
   return spawnSync("git", ["cat-file", "-e", `${ref}:${gitPath}`], { cwd: REPO_ROOT }).status === 0
 }
 
+const skillAtRef = new Map<string, boolean>()
 function gitShowExists(ref: string, skill: string): boolean {
-  return gitPathExists(ref, `skills/${skill}/SKILL.md`)
+  const key = `${ref}:${skill}`
+  const cached = skillAtRef.get(key)
+  if (cached !== undefined) return cached
+  const exists = gitPathExists(ref, `skills/${skill}/SKILL.md`)
+  skillAtRef.set(key, exists)
+  return exists
 }
 
 describe("skill-eval-cell catalog", () => {
@@ -215,21 +224,66 @@ describe("skill-eval-cell catalog", () => {
         "ce-riffrec-feedback-analysis/quick-notes:references/analyzer.md",
         "ce-riffrec-feedback-analysis/quick-notes:references/quick-bug-report.md",
         "ce-riffrec-feedback-analysis/setup-before-recording:references/install-riffrec.md",
-        "ce-resolve-pr-feedback/judgment-bound-adjudicates:references/evaluation-rubric.md",
+        "ce-resolve-pr-feedback/bounded-failure-gets-no-more-code:references/evaluation-rubric.md",
+        "ce-resolve-pr-feedback/caller-publication-route:references/return-to-caller.md",
+      "ce-resolve-pr-feedback/judgment-bound-adjudicates:references/evaluation-rubric.md",
         "ce-resolve-pr-feedback/pipeline-no-merge:references/pipeline-mode.md",
         "ce-resolve-pr-feedback/pipeline-returns-complete-human-decision:references/evaluation-rubric.md",
         "ce-resolve-pr-feedback/pipeline-returns-complete-human-decision:references/pipeline-mode.md",
         "ce-resolve-pr-feedback/pipeline-root-adjudicates-first:references/evaluation-rubric.md",
         "ce-resolve-pr-feedback/pipeline-root-adjudicates-first:references/pipeline-mode.md",
+        "ce-resolve-pr-feedback/saved-batch-route:references/resume.md",
+        "ce-plan/handoff-offers-ce-work-only:references/plan-handoff.md",
+        "ce-retune/selected-streak-claim:references/noise-floor.md",
+        "ce-retune/fixed-null-confirmation:references/noise-floor.md",
+        "ce-retune/fresh-operational-confirmation:references/noise-floor.md",
+        "ce-retune/behavioral-failure-stops-attempt:references/noise-floor.md",
         "ce-test-xcode/missing-mcp-stops:references/setup-and-build.md",
         "ce-test-xcode/swiftui-inline-link-fallback:references/test-and-report.md",
         "ce-work/behavior-fix-routes-to-review:references/input-triage.md",
+        "ce-work/chained-units-run-inline:references/execution-strategy.md",
+        "ce-work/independent-units-run-as-wave:references/execution-strategy.md",
+        "ce-work/mixed-plan-wave-then-inline:references/execution-strategy.md",
+        "ce-work/incremental-message-fallback:references/implementation-loop.md",
+        "ce-work/incremental-message-literal-message:references/implementation-loop.md",
+        "ce-work/incremental-message-project:references/implementation-loop.md",
+        "ce-work/incremental-message-recent-log:references/implementation-loop.md",
+        "ce-work/incremental-message-required-attribution:references/implementation-loop.md",
+        "ce-work/incremental-message-user-override:references/implementation-loop.md",
         "ce-work/requirements-only-stops:references/input-triage.md",
         "ce-work/return-to-caller-no-pr:references/input-triage.md",
         "ce-work/return-to-caller-no-pr:references/return-to-caller.md",
+        "ce-code-review/antigravity-last-automatic-target:references/cross-model-review.md",
+        "ce-code-review/composer-not-auto-selected:references/cross-model-review.md",
+        "ce-code-review/gemini-request-binds-antigravity:references/cross-model-review.md",
+        "ce-doc-review/antigravity-last-automatic-target:references/cross-model-review.md",
+        "ce-pov/oracle-default-order-reaches-antigravity:references/cross-model-panel.md",
+        "ce-work/antigravity-default-candidates:references/cross-model-execution.md",
         "lfg/plan-first:references/plan-brief.md",
       ].sort(),
     )
+  })
+
+  test.each([
+    ["BODY: - Correct widget limit", "git commit -F /tmp/message.txt -- widget.ts", true],
+    ["BODY: - Correct widget limit", 'git commit -F "/tmp/message.txt" -- widget.ts', true],
+    ["BODY: - Correct widget limit", "git commit -F '/tmp/message.txt' -- widget.ts", true],
+    ["BODY: - Correct widget limit", "git commit -F message.txt -- widget.ts", false],
+    ["", "git commit -F /tmp/message.txt -- widget.ts", false],
+    ["BODY: none", "git commit -F /tmp/message.txt -- widget.ts", false],
+    ["BODY: - Correct widget limit", 'git commit -m "Correct widget limit" -- widget.ts', false],
+  ])("incremental project message grades body %s and transport %s", (body, command, accepted) => {
+    const scenario = scenarioById("ce-work/incremental-message-project")!
+    const hostDir = fs.mkdtempSync(path.join(os.tmpdir(), "ce-message-grade-"))
+    try {
+      fs.writeFileSync(path.join(hostDir, "stdout.txt"), [
+        "SUBJECT: Correct widget limit", body, "FOOTER: none", `COMMAND: ${command}`,
+        "FILES_READ: references/implementation-loop.md", "ACTIONS: none", "DELEGATES_DISPATCHED: none",
+      ].join("\n"))
+      expect(gradeHost({ host: "claude", hostDir, arm: "post", grade: scenario.grade }).ok).toBe(accepted)
+    } finally {
+      fs.rmSync(hostDir, { recursive: true, force: true })
+    }
   })
 
   test("the 8KB sweep has no in-progress skills left", () => {
@@ -278,9 +332,14 @@ describe("skill-eval-cell catalog", () => {
       "ce-compound-refresh/worth-lens-intent-confirms-before-loading",
       "ce-debug/pipeline-divergent-defer",
       "ce-doc-review/approval-versus-judgment-summary",
+      "ce-doc-review/peer-outcome-disabled-by-config",
+      "ce-doc-review/peer-outcome-folded",
+      "ce-doc-review/peer-outcome-started-failed",
+      "ce-doc-review/peer-outcome-started-no-artifact",
       "ce-noslop/dense-paragraph-keeps-every-claim",
       "ce-noslop/detect-names-patterns-without-rewrite",
       "ce-noslop/facts-survive-the-edit",
+      "ce-noslop/fixes-leave-full-sentences",
       "ce-noslop/non-english-runs-tests-only",
       "ce-noslop/protected-spans-stay-byte-identical",
       "ce-noslop/two-devices-stay-unchanged",

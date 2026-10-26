@@ -15,11 +15,13 @@ bun run test:skill-eval-cell -- \
   --task "mode:pipeline the seat cap test is failing. Run node tests/seat-cap.check.js."
 ```
 
+`--fixture` copies the directory into the cell workspace. Test files under `fixtures/` belong to those workspaces, so the repo-root `bunfig.toml` excludes them from the repository suite.
+
 `--git-remote` (catalog: `git_remote: true`) adds a fake `origin` whose `main` is the seed commit, so a shipping tail takes the push/PR path — where `--shim-git-push` then fails — instead of the local-commit path it takes when no remote exists.
 
 `--read-only` enforces the fake boundary, it does not merely suggest it: Codex drops `--dangerously-bypass-approvals-and-sandbox` and runs `--sandbox read-only` (the two contradict each other), and Claude pairs `--allowedTools Read,Glob,Grep` with a `--disallowedTools` list that also names `Task,Skill,WebFetch,WebSearch,NotebookEdit` — under `--dangerously-skip-permissions` those stay callable, so allow-listing alone leaves the boundary open.
 
-Prints a `summary.json` path. Each host gets its own workspace copy plus stdout/stderr, git status/log, and a file list. PATH shims live beside that workspace, never inside it, so the skill under test never sees harness files as its own dirty tree. Grade those; Grok narrates before the answer (grep `FILES_READ:`). Codex transcript is stderr, final message is stdout. `claude -p` is one-tick only.
+Prints a `summary.json` path. Each host gets its own workspace copy plus stdout/stderr, git status/log, and a file list. PATH shims live beside that workspace, never inside it, so the skill under test never sees harness files as its own dirty tree. Grade those; Grok narrates before the answer (grep `FILES_READ:`). Codex transcript is stderr, final message is stdout. A conversation cell (`--persona`) differs: Codex runs with `--json`, `stdout.txt` is the conversation with every agent message of each turn, and the event stream, tool calls included, lands in `stderr.txt`. `claude -p` is one-tick only.
 
 Each invocation requires a new or empty `--out` directory and records input and
 evidence fingerprints. Packs freeze their scenario criteria and grader hashes.
@@ -29,6 +31,18 @@ See [reproducible evaluation evidence](reproducibility.md) for regrading command
 partial collection outcomes, legacy-pack compatibility, and snapshot limits.
 
 Gotchas baked in (see `docs/solutions/skill-design/size-driven-skill-restructure.md`): Codex stdin `/dev/null`, `CLAUDECODE` unset, `NO_COLOR=1`.
+
+## Judged conversation evals
+
+`bun run test:skill-eval-judge` evaluates behavior only a model can grade, such as whether an interview skill surfaces what the user needs without building what nobody asked for. For each scenario it runs the skill at the scenario's base ref and at the working tree, on Claude and Codex, as a conversation (`run.ts --persona`: each turn resumes the host session and a separate tool-less simulated user answers from a persona). It then grades every transcript blind under an anonymous id, with cell paths redacted, using the scenario's rubric, and writes `report.md` and `report.json` with totals per host and arm.
+
+```bash
+bun run test:skill-eval-judge -- --scenario my-change.json --out /tmp/judge    # scenarios written for the change
+bun run test:skill-eval-judge -- --id ce-brainstorm/ --out /tmp/judge          # the starting library
+bun run test:skill-eval-judge -- --grade-only --out /tmp/judge                 # regrade existing cells
+```
+
+Scenarios are best written for the change under test; `judged/scenarios.ts` documents the fields and holds a starting library, with personas and rubrics under `judged/` and fixtures under `fixtures/judged-*`. A rubric must ask for one JSON object with a `metrics` map. Results are PR evidence, not a regrade-stable pack: grades come from a model, so deterministic checks stay in `catalog.ts`. Not part of `bun test` or CI; it bills the host CLIs.
 
 ## Hand-run eval packs
 

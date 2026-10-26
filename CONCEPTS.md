@@ -116,6 +116,11 @@ The inline remnant left in a Skill when load-bearing content moves to a referenc
 ### Output contract
 The shape a planning Skill commits to delivering for one run, chosen by its proportionality gate at intake before any research or subagent spend: Direct (a few sentences in chat handed to execution), Chat brief (a chat-only summary with units and test expectations, file-optional), or Durable (the unified plan artifact with its full floor). The gate is a condition on the work's shape with a safe failure direction toward the heavier contract; pipeline and headless runs, and any run without a synchronous user, always take Durable.
 
+### Sizing test
+The condition a plan, and the implementation built from it, apply to every mechanism the request did not ask for, such as a guard, retry, recovery path, mode, or abstraction: it is built only when an existing contract requires it, when leaving it out lets harm land before anyone catches it, or when adding it later would be expensive (stored data, a shared interface, money, security). It is distinct from the Output contract, which sizes the plan's delivery shape rather than what the plan builds.
+
+The test starts from how the result is used, including who finds out when it fails; an instruction asking a person to avoid a failure does not count as catching it. A concern that fails is recorded as considered and not built, with its reason and what would change the call, and uncertainty resolves toward building. The test never trims what the request asked for: a safeguard that would narrow a requested behavior is recorded as an open question for the requester instead. Findings from research, specialist agents, and document review are claims judged by this test, and the reviewer applies it in both directions.
+
 ### Phase-loaded kernel
 A Skill body reduced to what must fire without a read — outcome, done bar, authority, phase order, the stop classes that hold when a reference is never opened, and a required read named immediately before each acting step — with each phase's mechanics owned by one reference loaded at that step. The design assumes the load happens at the acting point; a host that reads every reference at kernel load satisfies the letter of "read before the step" while losing both the context saving and any safety path that depends on a late read, so the kernel must state that an earlier read does not satisfy the acting-point read.
 
@@ -229,6 +234,12 @@ The single, surface-agnostic contract for how a review finding is presented for 
 
 ### Headless mode
 An explicit opt-in mode that runs a Skill unattended, with no user prompts — it produces a written report as its deliverable and conservatively defers genuinely ambiguous decisions rather than guessing. A Skill may expose a separate depth selector inside headless mode when automations need an explicit coverage tradeoff; the non-interactive contract and the work depth remain distinct decisions.
+
+### Scoping synthesis
+The chat checkpoint a writer skill (ce-brainstorm, ce-plan) shows the user before writing its document, so the user can confirm in one read that the agent understood the problem and can correct the decisions that would change the output. It is not a preview of the document: it leads with the problem in the agent's own words, carries only what the user needs to judge the requirements or plan, and leaves the rest to the document.
+*Avoid:* synthesis summary, scope confirmation
+
+Session-settled decisions carried in from before the skill started appear in it as statements, never as questions; decisions the user made in the skill's own dialogue are reflected in the stated shape rather than replayed. A revision is not a confirmation: the document is written only after the user confirms the current synthesis.
 
 ### Session-settled decision
 A decision examined and chosen by the user in the invoking conversation — a surfaced tradeoff or alternative followed by the user's choice — carried through the Pipeline as a provenance-labeled constraint (annotation stem `session-settled:`, classes `user-directed` and `user-approved`) that downstream skills augment but never re-ask, and contradict only on evidence. An unexamined assertion is a directive, not a settled decision, and receives exactly one in-pipeline challenge; agents never label their own unexamined proposals.

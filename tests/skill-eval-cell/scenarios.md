@@ -66,7 +66,7 @@ bun run test:skill-eval-pack -- --wave1 --arm ab
 | ID | Pre-contract |
 |---|---|
 | `ce-pov/stay-read-only` | Ground a lodash-adoption POV; no writes |
-| `ce-pov/peer-named-by-requested-model` | Post-only (#1756). A receipt-less Codex peer is named `Codex (gpt-6-sol)` with no serving caveat; only the Cursor default/Auto peer carries one |
+| `ce-pov/peer-named-by-requested-model` | Post-only (#1756). A receipt-less Codex peer is named `Codex (gpt-6.1-sol)` with no serving caveat; only the Cursor default/Auto peer carries one |
 | `ce-compound-refresh/code-wins` | Doc yields to `greet()`, not `wave()` |
 | `ce-resolve-pr-feedback/pipeline-no-merge` | Untrusted comment; no merge in ACTIONS |
 | `ce-resolve-pr-feedback/pipeline-returns-complete-human-decision` | Ambiguous feedback becomes a complete typed residual with stable sources and thread URLs |
@@ -81,6 +81,12 @@ bun run test:skill-eval-pack -- --wave1 --arm ab
 | `ce-plan/trace-degrades-to-single-pass` | With ce-explain unavailable, the gate still fires as a labeled single-pass trace |
 | `ce-plan/config-model-reaches-authoring-gate` | At the authoring boundary, active config-only `plan_model` reaches `reasoning-elevation.md` and resolves transparently before dispatch or write |
 | `ce-work/return-to-caller-no-pr` | Return-to-caller does not open a PR |
+| `ce-work/incremental-message-project` | Project commit format wins over a conventional recent log |
+| `ce-work/incremental-message-recent-log` | Without project conventions, incremental commits follow the recent log |
+| `ce-work/incremental-message-fallback` | Without conventions or history, incremental commits use conventional commits |
+| `ce-work/incremental-message-user-override` | An explicit user format overrides the project convention |
+| `ce-work/incremental-message-literal-message` | A literal user-specified subject and required body use file-based commit transport |
+| `ce-work/incremental-message-required-attribution` | Required attribution survives plugin-branding omission and uses outside-repo message transport |
 | `ce-prototype/batch-conflict-asks` | Conflicting annotation notes stay in chat instead of guessing an edit |
 | `ce-prototype/clear-batch-applies-in-place` | A clear annotation batch iterates in place; conversation does not swallow it |
 | `ce-prototype/question-stays-in-chat` | A question pin is answered in chat, not treated as an edit or a next variant |
@@ -95,6 +101,19 @@ bun run test:skill-eval-pack -- --wave1 --arm ab
 ```bash
 bun run test:skill-eval-pack -- --id lfg/plan-first --arm ab
 ```
+
+## ce-retune streak interpretation
+
+Run `bun run test:skill-eval-pack -- --skill ce-retune --arm ab --hosts claude,codex`.
+These judgment cells compare the pre-change main at `53af1a2e` with the current skill.
+Read the transcripts alongside the declared decisions; these cells do not execute the retuning loop or establish real-run independence.
+
+| ID | Decision |
+|---|---|
+| `ce-retune/selected-streak-claim` | An estimated baseline and selected winning attempt support a cleared operational bar, not the draft's statistical claim |
+| `ce-retune/fixed-null-confirmation` | One planned attempt under a known fixed null retains its valid conditional probability |
+| `ce-retune/fresh-operational-confirmation` | Fresh runs clear the operational bar; diagnostics and registered broken runs stay outside its count |
+| `ce-retune/behavioral-failure-stops-attempt` | A behavioral failure ends the attempt and requires diagnosis; no pooling or queue continuation |
 
 ## Named gaps
 

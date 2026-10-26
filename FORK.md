@@ -17,6 +17,7 @@ Upstream skills are modified in two places:
 - **`ce-plan`** — plan filenames use a ticket identifier (`YYYY-MM-DD-ft-<ticket>-<type>-<name>-plan.md`) instead of upstream's wall-clock prefix (`-HHMM-`, formerly a daily `-NNN-` sequence). Open Questions must also survive a resolution pass (code, origin artifacts, obvious default) before they stay in a plan.
 - **Review report shape** — `ce-code-review`'s markdown report and `ce-quick-review`'s report are a bottom-up action list: context first, then `Optional` -> `Worth fixing` -> `Fix before merge`, so the report ends on the most urgent item. There is no "Actionable Findings" section; consumers (`ce-work`, `lfg`) read `actionable_findings` from `mode:agent` JSON or the markdown items routed `-> downstream-resolver`.
 - **Review rosters trimmed** — `ce-code-review` drops the `swift-ios` reviewer (no iOS work) and `previous-comments` (it only fires on GitHub PR targets, and this fork reviews GitLab MRs). Its `performance` reviewer and `ce-simplify-code`'s efficiency reviewer run only when the change adds cost that grows with data or traffic; most reviews skip them.
+- **Linear ticket marked started** — when the project's issues live in Linear, `ce-plan` (once it knows the ticket) and `ce-work` (before its first edit) move the ticket to In Progress and assign it to the current user. Best-effort: they never move a ticket backwards, never take it from a teammate, and never block on Linear.
 - **Cross-model peer review is disabled fork-wide** — see below.
 
 Everything else tracks upstream unchanged.
@@ -133,8 +134,10 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `tests/release-metadata.test.ts` | Skill count (upstream's number plus the fork's 3) |
 | `skills/ce-code-review/references/{persona-catalog,select-and-route,scope}.md`, `scripts/review-scope.py`, `skills/ce-simplify-code/SKILL.md`, `docs/guides/{ce-code-review,ce-simplify-code}.md` | Trimmed roster; performance and efficiency skip by default. If upstream edits a removed persona file, keep it deleted |
 | `tests/codex-skill-prompt-budget.test.ts` | `ce-quick-review` listed in `OVER_BUDGET` until it is split under Codex's 8000-byte cap |
+| `docs/guides/README.md` | `Fork Additions` table at the end of Workflow Utilities, before "See also" |
 | `README.md` | Fork badge, install paths, skill counts, and a `Fork additions` row in "Skills at a glance" (the metadata test requires every skill to be named there) |
-| `skills/ce-plan/references/{structure,final-review,plan-sections}.md` | `ft-<ticket>` naming, Open Questions resolution pass |
+| `skills/ce-plan/references/{structure,final-review,plan-sections}.md` | `ft-<ticket>` naming, Open Questions resolution pass; `structure.md` also marks the Linear ticket started |
+| `skills/ce-work/references/workspace-setup.md` | Marks the Linear ticket started before the first edit |
 | `tests/skills/unified-plan-artifact-contract.test.ts` | Plan-filename test rewritten to pin `ft-<ticket>` |
 | `skills/ce-code-review/references/{review-output-template,finish-review}.md`, `docs/guides/ce-code-review.md` | Bottom-up action-list report |
 | `skills/ce-work/references/{review-findings-followup,shipping-workflow}.md`, `skills/lfg/**` | Read the actionable set instead of the removed Actionable Findings section |
@@ -147,7 +150,7 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `skills/ce-pov/SKILL.md` | Panel disabled; description and `argument-hint` reconciled |
 | `skills/ce-pov/references/invocation.md` | `oracle` / named-peer wording reconciled |
 | `skills/ce-work/SKILL.md` | Cross-model engine and `implementation_run:` recovery disabled |
-| `skills/ce-work/references/{execution-engines,implementation-loop}.md` | Engine removed from selection |
+| `skills/ce-work/references/{execution-engines,implementation-loop,execution-strategy}.md` | Engine removed from selection; `execution-engines.md` keeps upstream's "two implementation engines" wording (tests pin it) and says only native is selectable |
 | `skills/*/references/cross-model-*.md` | `DISABLED IN THIS FORK` banner |
 | `skills/ce-setup/references/config-template.yaml` + `.compound-engineering/config.example.yaml` | `cross_model_*` and `work_engine_*` keys marked inert (keep the two byte-identical) |
 | `docs/guides/configuration.md` | Same two rows marked inert |

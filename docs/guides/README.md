@@ -72,7 +72,7 @@ Invoked when a specific need arises, not part of any chain.
 | [`/ce-debug`](./ce-debug.md) | Find the root cause of broken behavior: causal chain, predictions, then an optional fix and PR handoff |
 | [`/ce-code-review`](./ce-code-review.md) | Structured review of a diff or PR: skill-local personas, confidence-gated findings, and the rules you write in `CODING_STANDARDS.md` |
 | [`/ce-doc-review`](./ce-doc-review.md) | Structured review of a requirements or plan document: findings, not a holistic verdict |
-| [`/ce-simplify-code`](./ce-simplify-code.md) | Refine recently changed code for reuse, quality, and efficiency, with behavior preserved |
+| [`/ce-simplify-code`](./ce-simplify-code.md) | Refine changed code for reuse, quality, and efficiency, and prune low-value tests and comments, with behavior preserved |
 | [`/ce-optimize`](./ce-optimize.md) | Keep confirmed improvements to a measurable target: attribute cost or score variants |
 | [`/ce-retune`](./ce-retune.md) | Retune a skill corpus for a new model: baseline, noise floor, then measured cut passes |
 
@@ -128,7 +128,12 @@ Invoked when a specific need arises, not part of any chain.
 | [`/ce-noslop`](./ce-noslop.md) | Rewrite, check, or draft prose with no AI tells that reads on the first read; every fact preserved. Sibling skills invoke it where they write. |
 | [`/wtf`](./wtf.md) | Explain the last message, or a supplied file, link, or passage, in plain language. Explains rather than rewrites; keeps caveats and adds no claims. Manual invoke only. |
 | [`/ce-promote`](./ce-promote.md) | Draft announcement copy for a shipped feature (X, changelog, LinkedIn, email, blog, demo). Drafts only; never posts. |
-| [`/ce-resolve-pr-feedback`](./ce-resolve-pr-feedback.md) | One pass to evaluate, fix, and reply to PR review comments, including nitpicks. Babysit is the watch that calls this. |
+| [`/ce-resolve-pr-feedback`](./ce-resolve-pr-feedback.md) | Judge and fix PR feedback, then complete conversations after publication; can save a local fix batch for caller publication and resume it later. Babysit is the watch that calls this. |
+| [`/ce-dogfood`](./ce-dogfood.md) | Hands-off browser QA of the branch: map flows, fix small breakages, write a report. Manual invoke only. |
+| [`/ce-test-browser`](./ce-test-browser.md) | End-to-end browser tests of the current diff using a host-native browser with `agent-browser` fallback. Does not check out a PR or branch. |
+| [`/ce-test-xcode`](./ce-test-xcode.md) | Build and test an iOS app on the simulator (screenshots, logs, human verification). Not XCUITest. |
+| [`/ce-setup`](./ce-setup.md) | Diagnose optional tool capabilities, create or repair repo `config.yaml`, and scaffold a Compound Pack |
+| [`/ce-handoff`](./ce-handoff.md) | Write a session handoff, or find and orient from a selected source. Does not auto-continue. |
 
 ## Fork Additions
 
@@ -139,11 +144,6 @@ These skills exist only in this fork. See [FORK.md](../../FORK.md).
 | [`/ce-quick-review`](./ce-quick-review.md) | Fast pre-PR review with a fixed three-agent team (correctness, combined quality, learnings). One bottom-up action list; applies no fixes |
 | [`/ce-resolve-mr-feedback`](./ce-resolve-mr-feedback.md) | GitLab counterpart to `ce-resolve-pr-feedback`: judge, fix, reply to, and resolve MR discussions in one pass |
 | [`/ce-generate-review-guide`](./ce-generate-review-guide.md) | Reviewer's guide from a GitLab MR: overview, critical areas, testing scenarios, prioritized files |
-| [`/ce-dogfood`](./ce-dogfood.md) | Hands-off browser QA of the branch: map flows, fix small breakages, write a report. Manual invoke only. |
-| [`/ce-test-browser`](./ce-test-browser.md) | End-to-end browser tests of the current diff using a host-native browser with `agent-browser` fallback. Does not check out a PR or branch. |
-| [`/ce-test-xcode`](./ce-test-xcode.md) | Build and test an iOS app on the simulator (screenshots, logs, human verification). Not XCUITest. |
-| [`/ce-setup`](./ce-setup.md) | Diagnose optional tool capabilities, create or repair repo `config.yaml`, and scaffold a Compound Pack |
-| [`/ce-handoff`](./ce-handoff.md) | Write a session handoff, or find and orient from a selected source. Does not auto-continue. |
 
 ---
 

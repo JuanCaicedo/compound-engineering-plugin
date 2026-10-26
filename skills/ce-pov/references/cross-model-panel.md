@@ -20,12 +20,12 @@ materially change the POV and context cannot distinguish them.
 
 Keep four identities separate for the host and every peer:
 
-- **target** — the user-facing choice (`codex`, `claude`, `grok`, `cursor`, or
-  `composer`);
+- **target** — the user-facing choice (`codex`, `claude`, `grok`, `cursor`,
+  `composer`, `opencode`, or `antigravity`);
 - **harness/intermediary route** — the CLI or intermediary that runs it;
 - **requested model** — an explicit model or the route's declared default; and
-- **served model** — the model the worker's receipt (its record of the route
-  and model that actually answered) confirms, otherwise `unverified`.
+- **served model** — the model the worker's receipt (the route's adapter
+  reporting which model answered) names, otherwise `unverified`.
 
 The requested model is a fact about the request and is always known; the served
 model is a claim about the backend and is known only from a receipt. `unverified`
@@ -47,9 +47,13 @@ verified rather than guessing.
 Attest the host harness and its serving family as two separate tokens:
 
 ```bash
-if [ "${CLAUDECODE:-}" = "1" ]; then XHOST_HARNESS=claude; XHOST_FAMILY=claude;
-elif [ -n "${CODEX_SANDBOX:-}${CODEX_SANDBOX_NETWORK_DISABLED:-}${CODEX_SESSION_ID:-}${CODEX_THREAD_ID:-}${CODEX_CI:-}" ]; then XHOST_HARNESS=codex; XHOST_FAMILY=codex;
-elif [ "${GROK_AGENT:-}" = "1" ] || [ -n "${GROK_SESSION_ID:-}" ]; then XHOST_HARNESS=grok; XHOST_FAMILY=grok;
+XHOST_SEEN=;
+if [ "${CLAUDECODE:-}" = "1" ]; then XHOST_SEEN="$XHOST_SEEN claude"; fi;
+if [ -n "${CODEX_SANDBOX:-}${CODEX_SANDBOX_NETWORK_DISABLED:-}${CODEX_SESSION_ID:-}${CODEX_THREAD_ID:-}${CODEX_CI:-}" ]; then XHOST_SEEN="$XHOST_SEEN codex"; fi;
+if [ "${GROK_AGENT:-}" = "1" ] || [ -n "${GROK_SESSION_ID:-}" ]; then XHOST_SEEN="$XHOST_SEEN grok"; fi;
+if [ -n "${OMPCODE:-}" ]; then XHOST_HARNESS=omp; XHOST_FAMILY=unknown;
+elif [ "$XHOST_SEEN" = " claude" ] || [ "$XHOST_SEEN" = " codex" ] || [ "$XHOST_SEEN" = " grok" ]; then XHOST_HARNESS="${XHOST_SEEN# }"; XHOST_FAMILY="$XHOST_HARNESS";
+elif [ -n "$XHOST_SEEN" ]; then XHOST_HARNESS=unknown; XHOST_FAMILY=unknown;
 elif [ -n "${CURSOR_AGENT:-}${CURSOR_CONVERSATION_ID:-}" ]; then XHOST_HARNESS=cursor; XHOST_FAMILY=unknown;
 elif [ -n "${OPENCODE_TERMINAL:-}" ]; then XHOST_HARNESS=opencode; XHOST_FAMILY=unknown;
 else XHOST_HARNESS=unknown; XHOST_FAMILY=unknown; fi
@@ -57,17 +61,24 @@ else XHOST_HARNESS=unknown; XHOST_FAMILY=unknown; fi
 
 Both tokens come from the same peer-key vocabulary as the targets above, never
 from a provider's corporate name: `<host-serving-family>` (`XHOST_FAMILY`) is
-`codex`, `claude`, `grok`, `composer`, or `unknown`. `<host-harness>`
-(`XHOST_HARNESS`) is `codex`, `claude`, `grok`, `cursor`, `opencode`, or `unknown`. The
+`codex`, `claude`, `grok`, `composer`, `gemini`, or `unknown`. `<host-harness>`
+(`XHOST_HARNESS`) is `codex`, `claude`, `grok`, `cursor`, `opencode`,
+`antigravity`, `omp`, or `unknown`. The
 snippet is evidence, not the verdict: it resolves the harnesses whose
 environment markers it already names, and where it yields `unknown` on a harness
 you can identify from your own runtime, attest what you know instead. A harness
 the snippet does not name needs no new branch here.
 
-Cursor is the one identity self-knowledge cannot complete, because the harness
-does not determine the serving model: it keeps harness `cursor` and family
-`unknown` unless an observable serving-family attestation lets you set
-`XHOST_FAMILY` to `codex`, `claude`, `grok`, or `composer`.
+Claude Code, Codex, and Grok each serve their own model family, so the snippet
+takes the family from that harness's marker when it is the only such marker
+present. Another harness can copy one of those markers (oh-my-pi sets
+`CLAUDECODE=1` whatever model serves it), and a session started from inside
+another harness inherits that harness's marker. So the snippet leaves family
+`unknown` under `OMPCODE` or when more than one of those markers is present.
+Pass a family the snippet names. Where it leaves family `unknown`, set it only
+from a model id the runtime publishes as the model serving this session, and
+only when that id maps to `codex`, `claude`, `grok`, `composer`, or `gemini`. A
+requested model, the model's own claim, and the product name are not that id.
 Never infer serving family from the Cursor brand.
 
 Section 4 passes `XHOST_FAMILY` as the worker's first argument and
@@ -85,6 +96,11 @@ job and produce no artifact.
   `cursor-agent`.
 - `grok` prefers the native Grok CLI; Grok through Cursor is a different route
   and recipient. Section 3 binds which token.
+- `antigravity` runs a Gemini model through Google Antigravity's ACP runtime,
+  and its serving family is `gemini`. A request for a Gemini peer binds this
+  target. `CROSS_MODEL_PEERS` sanctions it only through the literal token
+  `antigravity`, so a skip there names that token. It is never a peer when the
+  host's serving family is `gemini` or its harness is `antigravity`.
 
 Apply exactly one participation branch:
 
@@ -99,7 +115,8 @@ when the request never says `oracle`. A request for ce-pov's take alone does not
   replace an explicitly named model with another model.
 - **Bare `oracle`:** select up to two reachable, attestably different-model
   targets using conversation preference, local configuration, active project
-  conventions, then the declared default order; announce the selection and run
+  conventions, then the default order `codex -> claude -> grok -> antigravity`;
+  announce the selection and run
   it. Invoking `oracle` authorizes this ordinary read-only consultation against
   the current project.
 - **Explicit unnamed cross-check:** skip the correction-cost check and use the
@@ -113,9 +130,8 @@ when the request never says `oracle`. A request for ce-pov's take alone does not
 For the count rule: zero reachable means solo plus one availability line. One
 or more auto-selected peers means one concise progress line naming the selected
 targets before dispatch.
-Cursor-default counts automatically only when its serving family can be
-attested as different from the host; it remains eligible when explicitly named
-or configured as a preference.
+Cursor default and Composer are never selected automatically; they run when
+named or configured as a preference.
 
 **Prior-opinion subjects.** When the subject is an already-formed position —
 ce-pov's own prior POV or the user's stated view — that position is the subject
@@ -146,7 +162,9 @@ adapter turns them into filesystem controls. Never present prompt-only patterns,
 a working directory, or a read-only flag as a confidentiality boundary, and
 never promise that secrets inside the readable scope are inaccessible. Peers may
 search and read within the declared scope but may not mutate the project or
-intentionally inspect outside it.
+intentionally inspect outside it. Every route denies the peer's write requests
+and runs the adapter's read-only mode where one exists, but the Codex adapter
+does not enforce its read-only mode, so no route is a write sandbox.
 
 Before initial dispatch, capture one **repository-scope identity**: the committed
 revision plus a digest of dirty and untracked content inside the normalized
@@ -176,7 +194,10 @@ For each peer:
 3. If that default is observed unavailable, obsolete, or incompatible, choose
    only the closest compatible equivalent in the same requested target, model
    family, and reasoning tier. Record the observed local fact and substitute.
-   An explicit user model request cannot become another model.
+   An explicit user model request cannot become another model. For
+   `antigravity`, the worker's own fallback from `gemini-4-argon` to
+   `gemini-3.8-flash` is the preferred mapping, so the host passes no
+   replacement model for it.
 4. Resolve one concrete target, model choice, harness route, provider, and every
    intermediary. Confirm every actual recipient is on the allowlist of permitted
    external recipients.
@@ -193,6 +214,7 @@ refuses anything else (including route-shaped guesses like `codex-cli`):
 | `cursor` | `cursor` |
 | `composer` | `composer` |
 | `opencode` | `opencode` |
+| `antigravity` | `antigravity` |
 
 The host harness does not choose the Grok route. Target `grok` binds `grok-cli` when that CLI is installed. Bind `grok-cursor` only when the user asked for Grok through Cursor, or when the grok CLI is absent and Cursor is a sanctioned recipient.
 
@@ -277,9 +299,7 @@ runner derives its supervisor hard cap from the ambient knob
 clear any ambient one on the start prefix (`CE_PEER_HARD_SECS=`) so a stale
 export cannot undercut the derivation. Do not re-export a *resolved*
 `CROSS_MODEL_HARD_SECS` onto the worker's command line: that converts a
-fallback into an override and strips the worker of its route-aware default
-(idle-guarded streaming routes share `HARD_SECS`; `grok-cli` alone keeps the
-lower `UNGUARDED_HARD_SECS` bound because its `--json-schema` path cannot stream).
+fallback into an override and strips the worker of its own default.
 
 Each worker writes `<run-dir>/pov-<target>.json`, where `<target>` is the resolved
 route target with `grok-cli`/`grok-cursor` collapsing to `grok`. Pass exactly that
@@ -335,9 +355,10 @@ PY="$(for c in python3 python py; do command -v "$c" >/dev/null 2>&1 && "$c" -c 
 CE_PEER_HARD_SECS= "$PY" "$SKILL_DIR/scripts/peer-job-runner.py" start --skill ce-pov --run-id "<run-id>" --label "<target>" --result-path "<run-dir>/pov-<target>.json" -- env CROSS_MODEL_HOST_HARNESS="<host-harness>" CROSS_MODEL_REPO_ROOT="<repo-root>" CROSS_MODEL_READ_ROOT="<read-root>" CROSS_MODEL_SCRATCH_PARENT="<scratch-dir>" bash "$SKILL_DIR/scripts/cross-model-pov.sh" "<host-serving-family>" "<fixed-route>" "<payload-path>" "<run-dir>"
 ```
 
-- `<host-serving-family>` is `codex`, `claude`, `grok`, `composer`, or
-  `unknown`; `<host-harness>` is `codex`, `claude`, `grok`, `cursor`, or
-  `unknown`. Both are the Section 1 attestation, not a provider name.
+- `<host-serving-family>` is `codex`, `claude`, `grok`, `composer`, `gemini`,
+  or `unknown`; `<host-harness>` is `codex`, `claude`, `grok`, `cursor`,
+  `opencode`, `antigravity`, `omp`, or `unknown`. Both are the Section 1 attestation,
+  not a provider name.
 - `<fixed-route>` is the sanctioned route token from Section 3's table;
   `<target>` is its resolved target, with `grok-cli` and `grok-cursor`
   collapsing to `grok`.
@@ -398,7 +419,18 @@ Attribute a served model only from a receipt, never from the request. Record
 target, actual harness/intermediary route, requested model, served model, and
 `independence_verified` separately. A served model of `unverified` stays
 `unverified` in the record; it does not become "unknown model" in the note,
-because the requested model is known. If a job yields no usable artifact, use bounded `peer skip evidence`
+because the requested model is known.
+
+Every route runs through acpx, which needs Node 22.13 or newer and `npx`. A
+worker line `transport unavailable (pre-egress, <scope>): <reason>` means the
+peer did not run and nothing reached the provider; report that voice as not run
+with the reason. Scope `shared` (Node, `npx`, or the npm fetch of acpx) fails
+every route the same way, so another route cannot replace it. Scope `route`
+(that route's CLI is missing, an acpx config file replaces its launch command,
+or the model was rejected, with the available models listed) affects only that
+route; any replacement follows Section 3's recipient rules.
+
+If a job yields no usable artifact, use bounded `peer skip evidence`
 from its log to state an observed quota, authentication, or route failure; never
 invent a cause. Attribute an account authentication failure only after
 provider-capable dispatch is positively established by the launch context or
@@ -532,6 +564,6 @@ and project context must not outlive their use.
 ## Participation, announcement, and disclosure (relocated from the body)
 
 A summons (a panel request) is an **affirmative** request to consult or reconcile peers, detected by reasoning over the invocation context — the user's wording or a calling skill's args. Wording that declines consultation ("solo POV, do not cross-check") or merely recounts a past cross-check names the same terms without asking for one, and is not a summons: peers are not dispatched and no project context leaves the run. For an affirmative request, a caller's paraphrase in one channel never cancels a summons still present in another; only a summons erased from every readable channel upstream is unrecoverable here.
-Invoking a named peer, an explicit cross-check, or `oracle` authorizes the panel protocol's normal read-only consultation against this project. Announce the selected peers before dispatch; ask only when a retry adds an unexpected recipient or intermediary, or an active instruction requires separate approval. Peers inspect the shared working tree directly and cannot edit it. The panel protocol preserves an unbiased initial round, bounds evidence-based reconciliation while honoring user-supplied pass limits, and attributes only receipt-supported independence.
+Invoking a named peer, an explicit cross-check, or `oracle` authorizes the panel protocol's normal read-only consultation against this project. Announce the selected peers before dispatch; ask only when a retry adds an unexpected recipient or intermediary, or an active instruction requires separate approval. Peers inspect the shared working tree directly and are told not to edit it. The panel protocol preserves an unbiased initial round, bounds evidence-based reconciliation while honoring user-supplied pass limits, and attributes only receipt-supported independence.
 Any POV delivered after a summons states which peers ran, or that none did and the observed reason; if no panel runs after a summons, keep the verdict content unchanged but add that panel-status line rather than shipping a bare solo verdict. A POV with no summons keeps the solo result unchanged with no panel note.
 Keep the host's own frozen position out of an independent peer's initial context; expose it only when the requested task is to critique that position or when a later reconciliation round compares already-formed views.
