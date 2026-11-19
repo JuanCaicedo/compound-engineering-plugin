@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/JuanCaicedo/compound-engineering-plugin/compare/marketplace-v1.0.3...marketplace-v1.0.4) (2026-11-19)
+
+
+### Bug Fixes
+
+* sync with upstream and re-apply the fork surface on its new layout ([a2bcbfc](https://github.com/JuanCaicedo/compound-engineering-plugin/commit/a2bcbfc085be6f25614f875548a62114c920aecd))
+
 ## [1.0.3](https://github.com/EveryInc/compound-engineering-plugin/compare/marketplace-v1.0.2...marketplace-v1.0.3) (2026-06-24)
 
 
