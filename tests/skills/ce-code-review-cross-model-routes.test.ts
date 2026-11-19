@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { spawnSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import {
   chmodSync,
   existsSync,
@@ -14,8 +15,8 @@ import {
 } from "node:fs"
 import { devNull, tmpdir } from "node:os"
 import path from "node:path"
-import { ACPX_PIN } from "../helpers/acpx-pin"
-import { alive } from "../helpers/process"
+import { ACPX_PIN, ACPX_RANGE } from "../helpers/acpx-pin"
+import { survivors } from "../helpers/process"
 
 // These tests spawn bash/python/git subprocesses; on a loaded CI runner they cross the 5s default
 // (2026-08-21, PR #1508: three different tests timed out across two reruns with no related change).
@@ -83,7 +84,7 @@ const SCRIPT = path.join(__dirname, "../../skills/ce-code-review/scripts/cross-m
 const DOC_SCRIPT = path.join(__dirname, "../../skills/ce-doc-review/scripts/cross-model-doc-review.sh")
 const STUB_NPX = path.join(__dirname, "../fixtures/acp-stub-npx.sh")
 const STREAMS = path.join(__dirname, "../fixtures/acpx-streams")
-const ROUTES = ["codex", "claude", "grok-cli", "grok-cursor", "cursor", "composer", "opencode"] as const
+const ROUTES = ["codex", "claude", "grok-cli", "grok-cursor", "cursor", "composer", "opencode", "pi"] as const
 const ROUTE_BIN: Record<string, string> = {
   codex: "codex",
   claude: "claude",
@@ -92,6 +93,7 @@ const ROUTE_BIN: Record<string, string> = {
   cursor: "cursor-agent",
   composer: "cursor-agent",
   opencode: "opencode",
+  pi: "pi",
 }
 // Flags that would grant the peer write / auto-approve / no-sandbox privileges.
 const NEVER_FLAGS = ["--yolo", "--force", "-f", "--always-approve", "--dangerously-skip-permissions", "--approve-all"]
@@ -157,6 +159,9 @@ function sandbox(providers: string[], stream = acpStream({ text: review() }), ex
       ...process.env,
       PATH: bin,
       HOME: home,
+      GEMINI_HOME: "",
+      // The omp session file names the serving family; never inherit the developer's real one.
+      PI_SESSION_FILE: "",
       // Mask any real Codex.app bundle so discovery sees only what the test stages.
       CROSS_MODEL_CODEX_APP_DIRS: temp("xmodel-cr-nobundle-"),
       ACP_STUB_NPX_STREAM: stream,
@@ -275,7 +280,7 @@ function run(args: string[], runDir: string, env: NodeJS.ProcessEnv = process.en
   }
 }
 function peerOutputs(files: string[]): string[] {
-  return files.filter((file) => /^adversarial-(codex|claude|grok|cursor|composer|opencode|antigravity)\.json$/.test(file))
+  return files.filter((file) => /^adversarial-(codex|claude|grok|cursor|composer|opencode|antigravity|pi)\.json$/.test(file))
 }
 function published(runDir: string, name: string) {
   return JSON.parse(readFileSync(path.join(runDir, name), "utf8"))
@@ -315,7 +320,7 @@ describe("cross-model-adversarial-review route safety", () => {
   })
 
   test.each([
-    ["codex", "--model gpt-6-luna codex exec", ["--config-option mode=read-only", "--config-option reasoning_effort=xhigh"]],
+    ["codex", "--model gpt-6.1-terra codex exec", ["--config-option mode=read-only", "--config-option reasoning_effort=high"]],
     ["claude", "--max-turns 25 --model claude-opus-5-5 claude exec", ["--config-option mode=default", "--config-option effort=high"]],
     ["grok-cli", "--model grok-4.7 grok-build exec", ["--config-option reasoning_effort=xhigh"]],
     ["grok-cursor", "--model grok-4.7[context=256k,reasoning_effort=high,fast=true] cursor exec", ["--config-option mode=ask"]],
@@ -324,7 +329,7 @@ describe("cross-model-adversarial-review route safety", () => {
     ["opencode", "--non-interactive-permissions deny --agent", ["opencode acp exec --config-option mode=plan"]],
   ])("--emit-adapter %s approves only reads, from the repository root", (route, agent, options) => {
     const command = emitAdapter(route)
-    expect(command).toContain(`npx -y acpx@${ACPX_PIN} --cwd <repo-root> --format json --mcp-config <mcp-config> --timeout 1200 --approve-reads --non-interactive-permissions deny`)
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- env -u npm_config_package acpx --cwd <repo-root> --format json --mcp-config <mcp-config> --timeout 1200 --approve-reads --non-interactive-permissions deny`)
     expect(command).toContain("env npm_config_prefer_offline=true npm_config_fetch_retries=0")
     expect(command).toContain(agent)
     for (const option of options) expect(command).toContain(option)
@@ -384,6 +389,24 @@ describe("cross-model-adversarial-review route safety", () => {
     expect(args[args.lastIndexOf("--config-option") + 1]).toBe("mode=plan")
   })
 
+  test("pi launches through a private wrapper that ignores project Pi files and allows only read tools without MCP", () => {
+    const sb = sandbox(["pi"])
+    const runDir = makeRunDir()
+    const r = run(["claude", "pi", "HEAD", runDir], runDir, { ...sb.env, CROSS_MODEL_HOST_HARNESS: "claude" })
+    expect(r.files).toContain("adversarial-pi.json")
+    const log = envLog(sb)
+    const wrapper = log.match(/^PI_ACP_PI_COMMAND=(.*)$/m)?.[1] ?? ""
+    expect(wrapper).not.toBe("")
+    expect(wrapper.startsWith(realpathSync(dirtyFixtureRepo()))).toBe(false)
+    expect(log).toContain(`exec ${path.join(sb.bin, "pi")} --no-approve --tools read\\,grep\\,find\\,ls --no-mcp "$@"`)
+    const args = argv(sb)
+    expect(args).toContain("pi")
+    expect(args).not.toContain("--model")
+    const out = published(runDir, "adversarial-pi.json")
+    expect(out.serving_family).toBe("unknown")
+    expect(out.independence_verified).toBe(false)
+  })
+
   test("acpx starts from private scratch, never the reviewed repository", () => {
     const sb = sandbox(["codex"])
     const runDir = makeRunDir()
@@ -428,7 +451,7 @@ describe("cross-model-adversarial-review route safety", () => {
     expect(r.files).toContain("adversarial-cursor.json")
   })
 
-  test("schema-valid output from a peer still running at the hard cap is never published", () => {
+  test("schema-valid output from a peer still running at the hard cap is never published", async () => {
     const sb = sandbox(["cursor-agent"], acpStream({ text: review(), stopReason: null, sleep: 30 }))
     const runDir = makeRunDir()
     const started = Date.now()
@@ -439,7 +462,7 @@ describe("cross-model-adversarial-review route safety", () => {
     expect(r.stderr).toContain("peer run ended with incomplete")
     const pids = readFileSync(sb.logs.pids, "utf8").trim().split("\n").map(Number)
     expect(pids).toHaveLength(2)
-    for (const pid of pids) expect(alive(pid)).toBe(false)
+    expect(await survivors(pids)).toEqual([])
   })
 
   test("a peer whose stream goes silent is reaped by the idle cap before the hard cap", () => {
@@ -479,6 +502,33 @@ describe("cross-model-adversarial-review diff delivery", () => {
     expect(text).not.toContain("too large to inline safely")
     // Codex no longer fetches the diff itself.
     expect(text).not.toContain("Run: git diff")
+  })
+
+  // codex-acp's only refusal option is `cancel`, which ends the turn, so one
+  // escalation request leaves the review with no artifact (#1896).
+  test.each([...ROUTES] as string[])("only the codex prompt rules out escalation requests (%s)", (route) => {
+    const sb = sandbox([ROUTE_BIN[route]])
+    const runDir = makeRunDir()
+    const target = route.startsWith("grok") ? "grok" : route
+    const r = run(["claude" === target ? "codex" : "claude", target, "HEAD", runDir], runDir, {
+      ...sb.env,
+      CROSS_MODEL_FIXED_ROUTE: route,
+      ...(route === "grok-cursor" ? { CROSS_MODEL_PEERS: "grok,cursor" } : {}),
+    })
+    expect(peerOutputs(r.files)).toHaveLength(1)
+    const rule = "never request escalated or out-of-sandbox permissions"
+    if (route === "codex") expect(prompt(sb)).toContain(rule)
+    else expect(prompt(sb)).not.toContain(rule)
+  })
+
+  test("the codex large-diff prompt also rules out escalation requests", () => {
+    const sb = sandbox(["codex"])
+    const runDir = makeRunDir("- Review the changed fixture.\n")
+    const r = run(["claude", "codex", "HEAD~1", runDir], runDir, { ...sb.env, CROSS_MODEL_INLINE_MAX_TOKENS: "1" })
+    expect(r.files).toContain("adversarial-codex.json")
+    const text = prompt(sb)
+    expect(text).toContain("too large to inline safely")
+    expect(text).toContain("never request escalated or out-of-sandbox permissions")
   })
 
   test("a large diff sends the orchestrator map and the staged diff's path to a route that can read it", () => {
@@ -615,6 +665,13 @@ describe("cross-model-adversarial-review provider selection", () => {
     const runDir = makeRunDir()
     run(["claude", "codex", "HEAD", runDir], runDir, { ...sb.env, CROSS_MODEL_CODEX_APP_DIRS: bundle })
     expect(envLog(sb)).toContain(`CODEX_PATH=${path.join(sb.bin, "codex")}\n`)
+  })
+
+  test("the codex route disables the user's Codex plugins so the peer cannot pick up ce-code-review (issue #1788)", () => {
+    const sb = sandbox(["codex"])
+    const runDir = makeRunDir()
+    run(["claude", "codex", "HEAD", runDir], runDir, { ...sb.env, CODEX_CONFIG: '{"features":{"plugins":true}}' })
+    expect(envLog(sb)).toContain('CODEX_CONFIG={"features":{"plugins":false}}\n')
   })
 
   test("a front-loaded preference overrides the default order", () => {
@@ -759,6 +816,158 @@ describe("cross-model-adversarial-review skip paths — non-blocking, no file", 
     expect(r.stderr).not.toContain("invalid")
     expect(calls(sb)).toBe(0)
   })
+
+  describe("omp host family resolved from the session's recorded model", () => {
+    const FOREIGN_HARNESS_MARKERS = ["CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_CI", "GROK_AGENT", "GROK_SESSION_ID", "CURSOR_AGENT", "CURSOR_CONVERSATION_ID", "OPENCODE_TERMINAL"]
+    const entry = (model: string, role?: string) => JSON.stringify({ type: "model_change", model, ...(role ? { role } : {}) })
+    function ompRun(target: string, lines: string[] | null, extra: NodeJS.ProcessEnv = {}) {
+      const sb = sandbox([target])
+      const runDir = makeRunDir()
+      const env: NodeJS.ProcessEnv = { ...sb.env, CROSS_MODEL_HOST_HARNESS: "omp", ...Object.fromEntries(FOREIGN_HARNESS_MARKERS.map((k) => [k, ""])), ...extra }
+      if (lines) {
+        const file = path.join(temp("xmodel-cr-omp-session-"), "session.jsonl")
+        writeFileSync(file, lines.join("\n") + "\n")
+        env.PI_SESSION_FILE = file
+      }
+      return { sb, r: run(["unknown", target, "HEAD", runDir], runDir, env) }
+    }
+
+    test.each([
+      ["anthropic/claude-sonnet-5-5", "codex"],
+      ["openai/gpt-5.4", "claude"],
+      ["openai-codex/gpt-6.1-terra", "claude"],
+      ["xai-oauth/grok-4.20-0309-reasoning", "codex"],
+    ])("%s attests a family that lets a different-family peer publish", (model, target) => {
+      const { r } = ompRun(target, [entry(model)])
+      expect(r.files).toContain(`adversarial-${target}.json`)
+    })
+
+    test("the attested family is excluded as a peer", () => {
+      const { sb, r } = ompRun("claude", [entry("anthropic/claude-sonnet-5-5")])
+      expect(r.files).not.toContain("adversarial-claude.json")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("an openai-served host excludes the codex peer", () => {
+      const { sb, r } = ompRun("codex", [entry("openai/gpt-5.4")])
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("a later default entry wins and non-default roles are ignored", () => {
+      const { r } = ompRun("codex", [entry("openai/gpt-5.4"), entry("anthropic/claude-sonnet-5-5", "smol"), entry("anthropic/claude-opus-4-8")])
+      expect(r.files).toContain("adversarial-codex.json")
+    })
+
+    test.each([
+      ["a gateway-served model", [entry("openrouter/anthropic/claude-sonnet-5-5")]],
+      ["a local model", [entry("ollama/llama3")]],
+      ["a malformed trailing line after a valid entry", [entry("anthropic/claude-sonnet-5-5"), '{"type":"model_change","mod']],
+      ["a latest entry that is a retry fallback", [entry("anthropic/claude-sonnet-5-5"), entry("openai/gpt-5.4", "fallback")]],
+      ["a latest entry with the undocumented temporary role", [entry("anthropic/claude-sonnet-5-5"), entry("openai/gpt-5.4", "temporary")]],
+      ["a session file with no model_change", [JSON.stringify({ type: "message" })]],
+      ["no session file", null],
+    ])("%s stays unattested and skips with the omp-specific reason", (_name, lines) => {
+      const { sb, r } = ompRun("codex", lines)
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("host serving family unattested; oh-my-pi session file names no first-party default model for this runtime")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test.each([
+      ["CODEX_THREAD_ID", "t-1"],
+      ["CLAUDE_CODE_ENTRYPOINT", "cli"],
+      ["GROK_AGENT", "1"],
+    ])("a nested harness marker %s leaves the inherited session unattested", (marker, value) => {
+      const { sb, r } = ompRun("codex", [entry("anthropic/claude-sonnet-5-5")], { [marker]: value })
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("host serving family unattested")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("a non-omp harness never reads the session file", () => {
+      const sb = sandbox(["codex"])
+      const runDir = makeRunDir()
+      const file = path.join(temp("xmodel-cr-omp-session-"), "session.jsonl")
+      writeFileSync(file, entry("anthropic/claude-sonnet-5-5") + "\n")
+      const r = run(["unknown", "codex", "HEAD", runDir], runDir, { ...sb.env, CROSS_MODEL_HOST_HARNESS: "cursor", PI_SESSION_FILE: file })
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(calls(sb)).toBe(0)
+    })
+  })
+
+  describe("pi host family resolved from the model of the session's latest reply", () => {
+    const FOREIGN_HARNESS_MARKERS = ["CLAUDECODE", "OMPCODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_CI", "GROK_AGENT", "GROK_SESSION_ID", "CURSOR_AGENT", "CURSOR_CONVERSATION_ID", "OPENCODE_TERMINAL"]
+    const reply = (provider: string, model: string) => JSON.stringify({ type: "message", message: { role: "assistant", provider, model } })
+    function piRun(target: string, lines: string[] | null, extra: NodeJS.ProcessEnv = {}) {
+      const sb = sandbox([target])
+      const runDir = makeRunDir()
+      const env: NodeJS.ProcessEnv = { ...sb.env, CROSS_MODEL_HOST_HARNESS: "pi", PI_PROVIDER: "", PI_MODEL: "", ...Object.fromEntries(FOREIGN_HARNESS_MARKERS.map((k) => [k, ""])), ...extra }
+      if (lines) {
+        const file = path.join(temp("xmodel-cr-pi-session-"), "session.jsonl")
+        writeFileSync(file, lines.join("\n") + "\n")
+        env.PI_SESSION_FILE = file
+      }
+      return { sb, r: run(["unknown", target, "HEAD", runDir], runDir, env) }
+    }
+
+    test.each([
+      ["anthropic", "claude-sonnet-5-5", "codex"],
+      ["openai", "gpt-5.4", "claude"],
+      ["openai-codex", "gpt-6.1-terra", "claude"],
+      ["xai", "grok-4.7", "codex"],
+    ])("a %s/%s reply attests a family that lets a different-family peer publish", (provider, model, target) => {
+      const { r } = piRun(target, [reply(provider, model)])
+      expect(r.files).toContain(`adversarial-${target}.json`)
+    })
+
+    test("the attested family is excluded as a peer", () => {
+      const { sb, r } = piRun("claude", [reply("anthropic", "claude-sonnet-5-5")])
+      expect(r.files).not.toContain("adversarial-claude.json")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("the latest reply wins over an earlier one and over user messages", () => {
+      const user = JSON.stringify({ type: "message", message: { role: "user", content: "hi" } })
+      const { r } = piRun("codex", [reply("openai", "gpt-5.4"), reply("anthropic", "claude-opus-5-5"), user])
+      expect(r.files).toContain("adversarial-codex.json")
+    })
+
+    test("an ephemeral session with no file falls back to the model Pi names", () => {
+      const { r } = piRun("codex", null, { PI_PROVIDER: "anthropic", PI_MODEL: "claude-opus-5-5" })
+      expect(r.files).toContain("adversarial-codex.json")
+    })
+
+    test.each([
+      ["a gateway-served model", [reply("openrouter", "anthropic/claude-sonnet-5-5")]],
+      ["a local model", [reply("ollama", "llama3")]],
+      ["a malformed trailing line after a valid reply", [reply("anthropic", "claude-sonnet-5-5"), '{"type":"message","mess']],
+      ["a session file with no reply", [JSON.stringify({ type: "session" })]],
+      ["no session file and no named model", null],
+    ])("%s stays unattested and skips with the Pi-specific reason", (_name, lines) => {
+      const { sb, r } = piRun("codex", lines)
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("host serving family unattested; Pi names no first-party model for this session's latest reply")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test.each([
+      ["CLAUDECODE", "1"],
+      ["OMPCODE", "1"],
+      ["CODEX_THREAD_ID", "t-1"],
+    ])("a nested harness marker %s leaves the inherited session unattested", (marker, value) => {
+      const { sb, r } = piRun("codex", [reply("anthropic", "claude-sonnet-5-5")], { [marker]: value })
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("another harness's environment marker is set beside Pi's")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("a pi host never selects the pi route as its own peer", () => {
+      const { sb, r } = piRun("pi", [reply("anthropic", "claude-sonnet-5-5")])
+      expect(r.files).not.toContain("adversarial-pi.json")
+      expect(calls(sb)).toBe(0)
+    })
+  })
 })
 
 describe("cross-model-adversarial-review outcome classification", () => {
@@ -783,12 +992,31 @@ describe("cross-model-adversarial-review outcome classification", () => {
     expect(r.stderr).not.toContain("pre-egress")
   })
 
+  // codex-acp streams a provider 400 as reply text and still ends the turn with end_turn.
+  test("a model the provider rejects in reply text is named in skip evidence with the advertised models", () => {
+    const sb = sandbox(["codex"], path.join(STREAMS, "model-rejected-end-turn"))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(r.files).not.toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.")
+    expect(r.stderr).toContain("peer skip evidence (advertised models): gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol")
+  })
+
   test("a cancelled turn that exits 0 is not published even with findings in its reply", () => {
     const sb = sandbox(["codex"], acpStream({ text: review(), stopReason: "cancelled", exit: 0 }))
     const runDir = makeRunDir()
     const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
     expect(r.files).not.toContain("adversarial-codex.json")
     expect(r.stderr).toContain("peer skip evidence: stopReason=cancelled")
+  })
+
+  test("a cancelled turn after a refused permission names that refusal", () => {
+    const sb = sandbox(["codex"], acpStream({ text: review(), stopReason: "cancelled", exit: 5 }))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(r.files).not.toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("peer skip evidence: permission request cancelled the turn")
+    expect(r.stderr).not.toContain("peer skip evidence: stopReason=cancelled")
   })
 
   test("a turn that ran out of turns is not published", () => {
@@ -896,15 +1124,47 @@ describe("cross-model-adversarial-review acpx transport preflight", () => {
     expect(r.stderr).not.toContain("peer skip evidence")
   })
 
-  test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {
+  test("the first line of a Node startup error is the pre-egress reason", () => {
+    const base = path.join(temp("xmodel-cr-node-"), "s")
+    const line = "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '@openclaw/fs-safe/dist/advanced.js'"
+    writeFileSync(`${base}.stderr`, `node:internal/modules/esm/resolve:275\n${line}\n    at Function._resolveFilename (node:internal/modules/cjs/loader:1207:15)\n`)
+    writeFileSync(`${base}.exit`, "1\n")
+    const sb = sandbox(["codex"], base)
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, route): ${line}`)
+    expect(r.stderr).not.toContain("acpx exited 1 before sending the prompt")
+    expect(peerOutputs(r.files)).toEqual([])
+  })
+
+  test.each(["stderr", "stdout"])("an npm date cutoff in %s is reported after one policy-respecting refresh", (channel) => {
+    const base = path.join(temp("xmodel-cr-age-"), "s")
+    const error = readFileSync(path.join(STREAMS, "npm-release-age.stderr"), "utf8")
+    writeFileSync(`${base}.${channel}`, channel === "stdout"
+      ? JSON.stringify({ jsonrpc: "2.0", id: 0, error: { code: -32000, message: error.replace("acpx@0.21.0", "@openai/codex@^0.156.1") } })
+      : error)
+    writeFileSync(`${base}.exit`, "1\n")
+    const sb = sandbox(["codex"], base)
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
+    expect(calls(sb)).toBe(2)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, ${channel === "stderr" ? "shared" : "route"}): npm could not resolve ${ACPX_RANGE}`)
+    expect(r.stderr).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(r.stderr).not.toContain("stale cached")
+    expect(r.stderr).toContain("npm policy unchanged")
+    expect(peerOutputs(r.files)).toEqual([])
+  })
+
+  test.each(["stale-npm-metadata", "npm-release-age"])("an npm resolution failure (%s) retries the same route once with fresh metadata", (stream) => {
     const base = path.join(temp("xmodel-cr-stale-"), "s")
-    for (const ext of ["stderr", "exit"]) writeFileSync(`${base}.1.${ext}`, readFileSync(path.join(STREAMS, `stale-npm-metadata.${ext}`)))
+    for (const ext of ["stderr", "exit"]) writeFileSync(`${base}.1.${ext}`, readFileSync(path.join(STREAMS, `${stream}.${ext}`)))
     acpStream({ text: review() }, `${base}.2`)
     const sb = sandbox(["codex"], base)
     const runDir = makeRunDir()
     const r = run(["claude", "codex", "HEAD", runDir], runDir, sb.env)
     expect(calls(sb)).toBe(2)
     expect(r.files).toContain("adversarial-codex.json")
+    expect(argv(sb)).toContain(ACPX_RANGE)
     expect(envLog(sb)).toContain("npm_config_prefer_offline=false\nnpm_config_fetch_retries=0\nnpm_config_prefer_online=true\n")
     expect(r.stderr).not.toContain("transport unavailable")
   })
@@ -1023,7 +1283,8 @@ describe("cross-model-adversarial-review normalization", () => {
   })
 
   test.each([
-    ["codex", "claude", { quota: { model_usage: [{ model: "gpt-6-luna", token_count: { totalTokens: 1200 } }] } }, "gpt-6-luna", false],
+    ["codex", "claude", { quota: { model_usage: [{ model: "gpt-6.1-terra", token_count: { totalTokens: 1200 } }] } }, "gpt-6.1-terra", false],
+    ["codex", "claude", { quota: { model_usage: [{ model: "gpt-6-luna", token_count: { totalTokens: 1200 } }] } }, "gpt-6-luna", true],
     ["claude", "codex", { quota: { model_usage: [
       { model: "claude-haiku-4-5", token_count: { totalTokens: 5000 } },
       { model: "claude-opus-5-5-20260801", token_count: { totalTokens: 100 } },
@@ -1039,6 +1300,23 @@ describe("cross-model-adversarial-review normalization", () => {
     expect(r.stderr.includes("model mismatch")).toBe(mismatch)
   })
 
+  test("an OpenCode effort override sets its ACP effort option", () => {
+    expect(emitAdapter("opencode", SCRIPT, { CROSS_MODEL_EFFORT_OVERRIDE: "xhigh" })).toContain("--config-option mode=plan --config-option effort=xhigh --file")
+  })
+
+  test("--emit-adapter pi launches the private Pi wrapper with no model or effort request", () => {
+    const command = emitAdapter("pi")
+    expect(command).toContain("PI_ACP_PI_COMMAND=<pi-wrapper>")
+    expect(command).toContain("--approve-reads --non-interactive-permissions deny")
+    expect(command).not.toContain("--model")
+    expect(command).not.toContain("effort=")
+    expect(command).toEndWith("pi exec --file <prompt-file>")
+  })
+
+  test("without an effort override OpenCode keeps its own default", () => {
+    expect(emitAdapter("opencode")).not.toContain("effort=")
+  })
+
   test("a valid effort override reaches the adapter; an unsupported level is rejected before launch", () => {
     let sb = sandbox(["claude"])
     let runDir = makeRunDir()
@@ -1048,7 +1326,7 @@ describe("cross-model-adversarial-review normalization", () => {
     expect(argv(sb)).toContain("effort=max")
     expect(r.stderr).toContain("(effort max)")
 
-    for (const [route, effort] of [["claude", "minimal"], ["grok-cli", "max"], ["opencode", "high"], ["composer", "high"]]) {
+    for (const [route, effort] of [["claude", "minimal"], ["grok-cli", "max"], ["opencode", "minimal"], ["composer", "high"], ["pi", "high"]]) {
       sb = sandbox([ROUTE_BIN[route]])
       runDir = makeRunDir()
       const target = route.startsWith("grok") ? "grok" : route
@@ -1233,6 +1511,7 @@ function signInWaitStream(base = path.join(temp("xmodel-cr-stream-"), "s")) {
 describe("cross-model-adversarial-review antigravity route", () => {
   test("--emit-adapter antigravity requests Argon read-only, strips Google credentials, and isolates GEMINI_HOME", () => {
     const command = emitAdapter("antigravity")
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- env -u npm_config_package acpx --cwd`)
     expect(command).toStartWith("env -u GEMINI_API_KEY -u GOOGLE_API_KEY -u GOOGLE_APPLICATION_CREDENTIALS -u GOOGLE_CLOUD_PROJECT -u GOOGLE_CLOUD_LOCATION -u GOOGLE_GENAI_USE_VERTEXAI -u AGY_LLM_GATEWAY_URL npm_config_prefer_offline=true")
     expect(command).toContain("GEMINI_HOME=<gemini-home>")
     expect(command).toContain("--approve-reads --non-interactive-permissions deny --model gemini-4-argon antigravity exec --config-option mode=default --config-option thinking_level=high")
@@ -1304,6 +1583,8 @@ describe("cross-model-adversarial-review antigravity route", () => {
     const runDir = makeRunDir()
     const r = run(["claude", "antigravity", "HEAD", runDir], runDir, { ...sb.env, CROSS_MODEL_SESSION_START_SECS: "1" })
     expect(r.stderr).toContain("transport unavailable (pre-egress, route): Antigravity is waiting for a Google sign-in")
+    expect(r.stderr).toContain(`{"auth":{"type":"oauth-personal"}} in ~/.gemini/antigravity-acp/settings.json, run npx -y --package '${ACPX_RANGE}' -- acpx antigravity exec ok`)
+    expect(r.stderr).toContain("antigravity exec ok in a terminal")
     expect(calls(sb)).toBe(1)
     expect(peerOutputs(r.files)).toEqual([])
   })
@@ -1318,6 +1599,25 @@ describe("cross-model-adversarial-review antigravity route", () => {
     expect(env).toContain(`ANTIGRAVITY_HARNESS_PATH=${path.join(sb.bin, "localharness_external")}`)
     expect(env).toMatch(/GEMINI_HOME=\S*xmodel-cr-scratch-\S*\/gemini-home/)
     expect(env).toContain('{"auth":{"type":"oauth-personal"}}')
+    expect(env).not.toContain("--- GEMINI_HOME token")
+  })
+
+  test.each([
+    ["the default home", false],
+    ["the user's own GEMINI_HOME", true],
+  ])("the private GEMINI_HOME gets a 0600 copy of the runtime sign-in token from %s", (_name, customHome) => {
+    const sb = sandbox(ANTIGRAVITY_BINS)
+    const userHome = customHome ? temp("xmodel-cr-user-gemini-") : path.join(sb.home, ".gemini")
+    mkdirSync(path.join(userHome, "antigravity-acp"), { recursive: true })
+    const token = path.join(userHome, "antigravity-acp", "acp_token.json")
+    writeFileSync(token, '{"refresh_token":"stub"}\n')
+    const runDir = makeRunDir()
+    run(["claude", "antigravity", "HEAD", runDir], runDir, { ...sb.env, ...(customHome ? { GEMINI_HOME: userHome } : {}) })
+    const env = envLog(sb)
+    expect(env).toMatch(/GEMINI_HOME=\S*xmodel-cr-scratch-\S*\/gemini-home/)
+    const digest = createHash("sha256").update('{"refresh_token":"stub"}\n').digest("hex")
+    expect(env).toContain(`--- GEMINI_HOME token 0600 sha256:${digest} ---`)
+    expect(readFileSync(token, "utf8")).toBe('{"refresh_token":"stub"}\n')
   })
 
   test("a runtime without its helper is a route pre-egress skip", () => {
@@ -1341,6 +1641,54 @@ describe("cross-model-adversarial-review antigravity route", () => {
     expect(resolvePeers("gemini", order, ANTIGRAVITY_BINS)).toBe("")
     expect(resolvePeers("claude", order, ANTIGRAVITY_BINS, { CROSS_MODEL_HOST_HARNESS: "antigravity" })).toBe("")
     expect(resolvePeers("gemini", order, [...ANTIGRAVITY_BINS, "codex"])).toBe("codex")
+  })
+})
+
+// What acpx@0.22.0 prints when codex-acp refuses a session option the account's
+// model does not list: the option request fails before any prompt is sent.
+function configRejectedStream(configId: string, value: string, base: string) {
+  const rpc = (body: Record<string, unknown>) => JSON.stringify({ jsonrpc: "2.0", ...body })
+  const sessionId = "stub-session-1"
+  writeFileSync(`${base}.stdout`, [
+    rpc({ id: 0, method: "initialize", params: { protocolVersion: 1 } }),
+    rpc({ id: 0, result: { protocolVersion: 1, authMethods: [] } }),
+    rpc({ id: 1, method: "session/new", params: { cwd: "/tmp/cwd", mcpServers: [] } }),
+    rpc({ id: 1, result: { sessionId } }),
+    rpc({ id: 2, method: "session/set_config_option", params: { sessionId, configId, value } }),
+    rpc({ id: 2, error: { code: -32602, message: "Invalid params" } }),
+  ].join("\n") + "\n")
+  writeFileSync(`${base}.exit`, "1\n")
+}
+
+describe("cross-model-adversarial-review codex account catalog (#2074, #2075)", () => {
+  const codexRun = (base: string, env: Record<string, string> = {}) => {
+    const sb = sandbox(["codex"], base)
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "HEAD", runDir], runDir, { ...sb.env, ...env })
+    return { sb, runDir, r }
+  }
+
+  test("an account without gpt-6.1-terra or the editorial effort recovers with gpt-6.1-sol at its default effort", () => {
+    const base = path.join(temp("xmodel-cr-stream-"), "s")
+    unadvertisedStream("gpt-6.1-terra", "gpt-6.1-sol", `${base}.1`)
+    configRejectedStream("reasoning_effort", "high", `${base}.2`)
+    acpStream({ text: review() }, `${base}.3`)
+    const { sb, runDir, r } = codexRun(base)
+    expect(calls(sb)).toBe(3)
+    expect(r.stderr).toContain("falling back to gpt-6.1-sol")
+    expect(r.stderr).toContain("refused reasoning_effort=high")
+    expect(argv(sb).some((a) => a.startsWith("reasoning_effort="))).toBe(false)
+    const out = published(runDir, "adversarial-codex.json")
+    expect([out.model_requested, out.effort_requested]).toEqual(["gpt-6.1-sol", "unverified"])
+  })
+
+  test("a refused configured effort skips and names the refused option", () => {
+    const base = path.join(temp("xmodel-cr-stream-"), "s")
+    configRejectedStream("reasoning_effort", "xhigh", `${base}.1`)
+    const { sb, r } = codexRun(base, { CROSS_MODEL_EFFORT_OVERRIDE: "xhigh" })
+    expect(calls(sb)).toBe(1)
+    expect(r.stderr).toMatch(/transport unavailable \(pre-egress, route\): Invalid params .*reasoning_effort=xhigh/)
+    expect(peerOutputs(r.files)).toEqual([])
   })
 })
 

@@ -21,7 +21,7 @@ materially change the POV and context cannot distinguish them.
 Keep four identities separate for the host and every peer:
 
 - **target** — the user-facing choice (`codex`, `claude`, `grok`, `cursor`,
-  `composer`, `opencode`, or `antigravity`);
+  `composer`, `opencode`, `antigravity`, or `pi`);
 - **harness/intermediary route** — the CLI or intermediary that runs it;
 - **requested model** — an explicit model or the route's declared default; and
 - **served model** — the model the worker's receipt (the route's adapter
@@ -52,6 +52,7 @@ if [ "${CLAUDECODE:-}" = "1" ]; then XHOST_SEEN="$XHOST_SEEN claude"; fi;
 if [ -n "${CODEX_SANDBOX:-}${CODEX_SANDBOX_NETWORK_DISABLED:-}${CODEX_SESSION_ID:-}${CODEX_THREAD_ID:-}${CODEX_CI:-}" ]; then XHOST_SEEN="$XHOST_SEEN codex"; fi;
 if [ "${GROK_AGENT:-}" = "1" ] || [ -n "${GROK_SESSION_ID:-}" ]; then XHOST_SEEN="$XHOST_SEEN grok"; fi;
 if [ -n "${OMPCODE:-}" ]; then XHOST_HARNESS=omp; XHOST_FAMILY=unknown;
+elif [ "${CROSS_MODEL_HOST_HARNESS:-}" = pi ]; then XHOST_HARNESS=pi; XHOST_FAMILY=unknown;
 elif [ "$XHOST_SEEN" = " claude" ] || [ "$XHOST_SEEN" = " codex" ] || [ "$XHOST_SEEN" = " grok" ]; then XHOST_HARNESS="${XHOST_SEEN# }"; XHOST_FAMILY="$XHOST_HARNESS";
 elif [ -n "$XHOST_SEEN" ]; then XHOST_HARNESS=unknown; XHOST_FAMILY=unknown;
 elif [ -n "${CURSOR_AGENT:-}${CURSOR_CONVERSATION_ID:-}" ]; then XHOST_HARNESS=cursor; XHOST_FAMILY=unknown;
@@ -63,7 +64,7 @@ Both tokens come from the same peer-key vocabulary as the targets above, never
 from a provider's corporate name: `<host-serving-family>` (`XHOST_FAMILY`) is
 `codex`, `claude`, `grok`, `composer`, `gemini`, or `unknown`. `<host-harness>`
 (`XHOST_HARNESS`) is `codex`, `claude`, `grok`, `cursor`, `opencode`,
-`antigravity`, `omp`, or `unknown`. The
+`antigravity`, `omp`, `pi`, or `unknown`. The
 snippet is evidence, not the verdict: it resolves the harnesses whose
 environment markers it already names, and where it yields `unknown` on a harness
 you can identify from your own runtime, attest what you know instead. A harness
@@ -74,7 +75,8 @@ takes the family from that harness's marker when it is the only such marker
 present. Another harness can copy one of those markers (oh-my-pi sets
 `CLAUDECODE=1` whatever model serves it), and a session started from inside
 another harness inherits that harness's marker. So the snippet leaves family
-`unknown` under `OMPCODE` or when more than one of those markers is present.
+`unknown` on a harness that serves any model (oh-my-pi or Pi) or when more
+than one of those markers is present.
 Pass a family the snippet names. Where it leaves family `unknown`, set it only
 from a model id the runtime publishes as the model serving this session, and
 only when that id maps to `codex`, `claude`, `grok`, `composer`, or `gemini`. A
@@ -101,6 +103,10 @@ job and produce no artifact.
   target. `CROSS_MODEL_PEERS` sanctions it only through the literal token
   `antigravity`, so a skip there names that token. It is never a peer when the
   host's serving family is `gemini` or its harness is `antigravity`.
+- `pi` runs the Pi coding agent on its own configured model unless a
+  `provider/model` pin names one. Pi serves any provider, so its serving family
+  is unknown and its POV is never independent. It is never a peer when the
+  host's harness is `pi`.
 
 Apply exactly one participation branch:
 
@@ -215,6 +221,7 @@ refuses anything else (including route-shaped guesses like `codex-cli`):
 | `composer` | `composer` |
 | `opencode` | `opencode` |
 | `antigravity` | `antigravity` |
+| `pi` | `pi` |
 
 The host harness does not choose the Grok route. Target `grok` binds `grok-cli` when that CLI is installed. Bind `grok-cursor` only when the user asked for Grok through Cursor, or when the grok CLI is absent and Cursor is a sanctioned recipient.
 
@@ -262,9 +269,9 @@ scope, and the evidence. Define round-1 evidence by provenance: source-located
 facts and the user's decision-relevant need are round-1 material, while host
 interpretations, risk rankings, and recommended consequences are not (for
 example, "the file at PATH contains X" is round-1 evidence, while "X is the risky
-option" waits for reconcile). Label inlined conversation-only material as such,
-and carry the user's stated goal — including its intensity — when it bears on the
-decision. State in the payload that rejecting every supplied option, or the
+option" waits for reconcile). Label inlined conversation-only material as such.
+When the user's goal bears on the decision, include the goal, how strongly they
+hold it, and any evidence they gave for it. State in the payload that rejecting every supplied option, or the
 framing itself, is a valid position. When ce-pov authored the subject in-session,
 present the options symmetrically in the payload's own words even though the full
 subject document remains attached. When the subject is itself an already-formed
@@ -282,8 +289,7 @@ partial-panel degradation rule.
 
 Use `scripts/cross-model-pov.sh` from this skill's directory to run one resolved
 fixed route per peer, and `scripts/peer-job-runner.py` for detached lifecycle
-control. Fill in the start command below rather than reconstructing the worker's
-arguments from its usage header. Pass the actual repository root separately from
+control. Pass the actual repository root separately from
 any narrower read root, and pre-create the round output directory as private
 scratch outside the repository. For named peers, start one job per exact target;
 for a selected panel, start one job per selected peer. Start all jobs before
@@ -307,14 +313,16 @@ path as `--result-path` to `peer-job-runner.py start`, so `done` is keyed to the
 artifact and `result <job-id>` reads it without guessing the filename or the
 host's provider key.
 
-**Interpreter.** The commands below run a bundled Python script. Resolve the
-interpreter in the *same* shell call as the command -- each tool call is a fresh
-shell, so a `$PY` set in an earlier call does not persist. Do not hardcode
-`python3`: on native Windows it resolves to a Microsoft Store stub that exits
-without running Python, and that stub still satisfies `command -v`, so probe
-execution rather than presence.
+**Runner prefix.** Every runner call below starts with these two lines, in the
+*same* tool call as the command, because each tool call is a fresh shell. Set
+`SKILL_DIR` to the absolute directory of **this** skill's `SKILL.md`; the shell's
+working directory is the user's project, not the skill directory. Do not
+hardcode `python3`: on native Windows it resolves to a Microsoft Store stub that
+exits without running Python and still satisfies `command -v`, so the prefix
+probes execution rather than presence.
 
 ```bash
+SKILL_DIR="<absolute path of the directory containing the SKILL.md you just read>";
 PY="$(for c in python3 python py; do command -v "$c" >/dev/null 2>&1 && "$c" -c '' >/dev/null 2>&1 && { echo "$c"; break; }; done)"; [ -n "$PY" ] || { echo "no working Python 3 interpreter on PATH" >&2; exit 1; };
 ```
 
@@ -345,19 +353,17 @@ started-job outcome and follows the ordinary terminal/recovery rules; keep
 `status`, `wait`, `result`, and `reap` sandboxed because they need no provider
 connection.
 
-Start one job per peer with the command below, filling every `<...>` slot. Set
-`SKILL_DIR` to the absolute directory of **this** skill's `SKILL.md`; the Bash
-tool's CWD is the user's project on every host, not the skill directory.
+Start one job per peer with the runner prefix and this command, filling every
+`<...>` slot. The command is complete: do not read either script's source or a
+peer CLI's help to build it.
 
 ```bash
-SKILL_DIR="<absolute path of the directory containing the SKILL.md you just read>";
-PY="$(for c in python3 python py; do command -v "$c" >/dev/null 2>&1 && "$c" -c '' >/dev/null 2>&1 && { echo "$c"; break; }; done)"; [ -n "$PY" ] || { echo "no working Python 3 interpreter on PATH" >&2; exit 1; };
 CE_PEER_HARD_SECS= "$PY" "$SKILL_DIR/scripts/peer-job-runner.py" start --skill ce-pov --run-id "<run-id>" --label "<target>" --result-path "<run-dir>/pov-<target>.json" -- env CROSS_MODEL_HOST_HARNESS="<host-harness>" CROSS_MODEL_REPO_ROOT="<repo-root>" CROSS_MODEL_READ_ROOT="<read-root>" CROSS_MODEL_SCRATCH_PARENT="<scratch-dir>" bash "$SKILL_DIR/scripts/cross-model-pov.sh" "<host-serving-family>" "<fixed-route>" "<payload-path>" "<run-dir>"
 ```
 
 - `<host-serving-family>` is `codex`, `claude`, `grok`, `composer`, `gemini`,
   or `unknown`; `<host-harness>` is `codex`, `claude`, `grok`, `cursor`,
-  `opencode`, `antigravity`, `omp`, or `unknown`. Both are the Section 1 attestation,
+  `opencode`, `antigravity`, `omp`, `pi`, or `unknown`. Both are the Section 1 attestation,
   not a provider name.
 - `<fixed-route>` is the sanctioned route token from Section 3's table;
   `<target>` is its resolved target, with `grok-cli` and `grok-cursor`
@@ -371,31 +377,47 @@ CE_PEER_HARD_SECS= "$PY" "$SKILL_DIR/scripts/peer-job-runner.py" start --skill c
   Section 2 resolved patterns, and `CROSS_MODEL_MODEL_OVERRIDE_TARGET` /
   `CROSS_MODEL_MODEL_OVERRIDE` only for a Section 3 same-family substitution.
 
-Record every job id and the epoch after the final start. Poll all jobs in
-bounded slices (resolve `$PY` again in each tool call — shells do not persist):
+Record every job id. Then wait for all of them with the runner prefix and this
+command, which polls for up to 30 seconds per call:
 
 ```bash
-SKILL_DIR="<absolute path of the directory containing the SKILL.md you just read>";
-PY="$(for c in python3 python py; do command -v "$c" >/dev/null 2>&1 && "$c" -c '' >/dev/null 2>&1 && { echo "$c"; break; }; done)"; [ -n "$PY" ] || { echo "no working Python 3 interpreter on PATH" >&2; exit 1; };
-"$PY" "$SKILL_DIR/scripts/peer-job-runner.py" wait --max-secs 30 --json <job-ids...>
+"$PY" "$SKILL_DIR/scripts/peer-job-runner.py" wait --max-secs 30 --deadline-secs "${CROSS_MODEL_HARD_SECS:-600}" --deadline-grace-secs 10 <job-ids...>
+```
+
+Each call prints one row per job (label, job id, state, seconds since start,
+and the reason for any job that ended without a result), then one line that
+says what to do next:
+
+- `all settled` — no job is still running. Collect results from the rows that
+  say `done`. Every other row is a peer that did not answer; its reason is only
+  the runner's view, so take the cause you report from that job's log, as
+  described below.
+- `waiting: ...` — run the same command again. Do not add a separate shell
+  sleep; `wait` itself provides the bounded polling delay.
+- `deadline passed: reap <job-ids>, then wait once more; ...` — reap every
+  listed job in one call with the runner prefix and the command below, then
+  run the wait command once more. If that final wait prints the same line,
+  stop waiting and treat the jobs still running as timed out.
+
+```bash
+"$PY" "$SKILL_DIR/scripts/peer-job-runner.py" reap <job-ids...>
 ```
 
 Job ids or job-directory paths are positional. `--skill`, `--run-id`, and
-`--label` are start-only; never pass them to `wait`. Do not add a separate shell
-sleep: `wait` itself provides the bounded polling delay. Use one aggregate
-deadline of `CROSS_MODEL_HARD_SECS` + 10 seconds (610s by default, since this
-skill's workers stop themselves at 600s); never begin a wait that can cross it. Read
-the knob rather than hardcoding the result -- a hardcoded deadline silently reaps
-a healthy peer whenever a user raises the knob, wasting the peer's full spend.
-Repeat the bounded slices above until every job is terminal or that deadline is
-spent; a single slice shorter than the deadline is not a substitute. At the
-deadline, reap each nonterminal job in a short call, then make one final wait:
-
-```bash
-SKILL_DIR="<absolute path of the directory containing the SKILL.md you just read>";
-PY="$(for c in python3 python py; do command -v "$c" >/dev/null 2>&1 && "$c" -c '' >/dev/null 2>&1 && { echo "$c"; break; }; done)"; [ -n "$PY" ] || { echo "no working Python 3 interpreter on PATH" >&2; exit 1; };
-"$PY" "$SKILL_DIR/scripts/peer-job-runner.py" wait --max-secs 10 --json <job-ids...>
-```
+`--label` are start-only; never pass them to `wait` or `reap`. The deadline is
+the worker's own cap plus 10 seconds (610s by default). It is counted from the
+last job's start. The command passes the cap from `CROSS_MODEL_HARD_SECS` in
+the host's environment to the runner, which adds the 10 seconds itself and
+rejects a value that is not a plain number of seconds. The workers inherit the
+same environment, so a user who exported a larger value keeps their wider
+window. Never add `CROSS_MODEL_HARD_SECS` to the
+start command's `env` prefix: the worker would see a cap this wait does not.
+Never set a smaller `CROSS_MODEL_HARD_SECS` to finish sooner: some peers routinely need about four minutes, and a shorter cap drops
+them after they have spent their run. Let each wait call run its full slice:
+when your shell tool hands back control before the command exits (a Codex
+shell session still running, a background task), keep reading that command's
+output rather than starting another wait. Between waits, read the result of
+any job whose row says `done` instead of holding it until the rest finish.
 
 Classify every started job from its terminal state; `done` alone does not
 prove a usable artifact exists.
@@ -428,7 +450,17 @@ with the reason. Scope `shared` (Node, `npx`, or the npm fetch of acpx) fails
 every route the same way, so another route cannot replace it. Scope `route`
 (that route's CLI is missing, an acpx config file replaces its launch command,
 or the model was rejected, with the available models listed) affects only that
-route; any replacement follows Section 3's recipient rules.
+route. A rejected model follows the refused-model rule below; any other
+replacement follows Section 3's recipient rules.
+
+When the requested model itself was refused (the adapter did not offer it, or
+the provider rejected it for this account, which `peer skip evidence (reply):`
+carries when the provider sent it as reply text), only the model failed and
+the route is still usable. If the worker ran its own default model rather than
+one the user named, start one new job for that voice on the same route, with
+no new recipient. Give it Section 3's closest same-family substitute, picked
+from `peer skip evidence (advertised models):` when that line is present. The
+note says which model was rejected. A model the user named is never swapped.
 
 If a job yields no usable artifact, use bounded `peer skip evidence`
 from its log to state an observed quota, authentication, or route failure; never
@@ -469,6 +501,11 @@ For each reconcile exchange:
    intermediary does. A failed peer is dropped for later rounds; do not reuse its
    older position as if it participated.
 
+When the initial independent voices materially dissent, run at least one
+reconcile exchange before any stop, unless the user limited the run to one
+pass. Deciding over a dissenter who never saw the counter-evidence is not a
+reasoned convergence.
+
 After fold-in, stop on the first matching enum:
 
 - **`confident`** — ce-pov has a reasoned POV after weighing every survivor;
@@ -499,7 +536,9 @@ note:
 
 - **Confident:** state whether voices aligned. Concurrence raises confidence but
   does not eliminate correlated-model blind spots. If ce-pov decided over
-  dissent, name the disagreement and why its result prevailed.
+  dissent, name the disagreement and why its result prevailed. Claim peer
+  agreement only for what the peers judged; name any recommendation you added
+  after the panel as your own.
 - **Stalemate:** state ce-pov's current position, each surviving peer's position
   and movement, every dropped voice's last state, and whether the disagreement
   is an evidence gap or judgment difference. Recommend when there is a real

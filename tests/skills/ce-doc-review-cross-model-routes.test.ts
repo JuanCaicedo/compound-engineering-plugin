@@ -14,8 +14,8 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { ACPX_PIN } from "../helpers/acpx-pin"
-import { alive } from "../helpers/process"
+import { ACPX_PIN, ACPX_RANGE } from "../helpers/acpx-pin"
+import { survivors } from "../helpers/process"
 
 // These tests spawn bash/python/jq subprocesses; on a loaded CI runner they cross the 5s default
 // (2026-08-21, PR #1508: three different tests timed out across two reruns with no related change).
@@ -35,7 +35,7 @@ afterAll(() => roots.forEach((dir) => rmSync(dir, { recursive: true, force: true
 const SCRIPT = path.join(__dirname, "../../skills/ce-doc-review/scripts/cross-model-doc-review.sh")
 const STUB_NPX = path.join(__dirname, "../fixtures/acp-stub-npx.sh")
 const STREAMS = path.join(__dirname, "../fixtures/acpx-streams")
-const ROUTES = ["codex", "claude", "grok-cli", "grok-cursor", "cursor", "composer", "opencode"] as const
+const ROUTES = ["codex", "claude", "grok-cli", "grok-cursor", "cursor", "composer", "opencode", "pi"] as const
 const ROUTE_BIN: Record<string, string> = {
   codex: "codex",
   claude: "claude",
@@ -44,6 +44,7 @@ const ROUTE_BIN: Record<string, string> = {
   cursor: "cursor-agent",
   composer: "cursor-agent",
   opencode: "opencode",
+  pi: "pi",
 }
 // Flags that would grant the peer write / auto-approve / no-sandbox privileges (R17).
 const NEVER_FLAGS = ["--yolo", "--force", "-f", "--always-approve", "--dangerously-skip-permissions", "--approve-all", "--approve-reads"]
@@ -109,6 +110,8 @@ function sandbox(providers: string[], stream = acpStream({ text: review() }), ex
       ...process.env,
       PATH: bin,
       HOME: home,
+      // The omp session file names the serving family; never inherit the developer's real one.
+      PI_SESSION_FILE: "",
       // Mask any real Codex.app bundle so discovery sees only what the test stages.
       CROSS_MODEL_CODEX_APP_DIRS: temp("xmodel-nobundle-"),
       ACP_STUB_NPX_STREAM: stream,
@@ -262,7 +265,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
   })
 
   test.each([
-    ["codex", "--model gpt-6-luna codex exec", ["--config-option mode=read-only", "--config-option reasoning_effort=xhigh"]],
+    ["codex", "--model gpt-6.1-terra codex exec", ["--config-option mode=read-only", "--config-option reasoning_effort=high"]],
     ["claude", "--max-turns 15 --model claude-opus-5-5 claude exec", ["--config-option mode=default", "--config-option effort=high"]],
     ["grok-cli", "--model grok-4.7 grok-build exec", ["--config-option reasoning_effort=xhigh"]],
     ["grok-cursor", "--model grok-4.7[context=256k,reasoning_effort=high,fast=true] cursor exec", ["--config-option mode=ask"]],
@@ -271,7 +274,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
     ["opencode", "--deny-all --agent", ["opencode acp exec --config-option mode=plan"]],
   ])("--emit-adapter %s denies every permission from the empty peer workspace", (route, agent, options) => {
     const command = emitAdapter(route)
-    expect(command).toContain(`npx -y acpx@${ACPX_PIN} --cwd <peer-workdir> --format json --mcp-config <mcp-config> --timeout 1200 --deny-all`)
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- env -u npm_config_package acpx --cwd <peer-workdir> --format json --mcp-config <mcp-config> --timeout 1200 --deny-all`)
     expect(command).toContain("env npm_config_prefer_offline=true npm_config_fetch_retries=0")
     expect(command).toContain(agent)
     for (const option of options) expect(command).toContain(option)
@@ -334,6 +337,17 @@ describe("cross-model-doc-review route safety (R17)", () => {
     expect(args[args.lastIndexOf("--config-option") + 1]).toBe("mode=plan")
   })
 
+  test("pi launches through a private wrapper that ignores project Pi files and turns tools and MCP off", () => {
+    const sb = sandbox(["pi"])
+    const runDir = makeRunDir()
+    const r = run(["claude", "pi", "adversarial", makeDoc(), "plan", "none", runDir], runDir, { ...sb.env, CROSS_MODEL_HOST_HARNESS: "claude" })
+    expect(r.files).toContain("adversarial-pi.json")
+    expect(envLog(sb)).toContain(`exec ${path.join(sb.bin, "pi")} --no-approve --no-tools --no-mcp "$@"`)
+    const out = published(runDir, "adversarial-pi.json")
+    expect(out.serving_family).toBe("unknown")
+    expect(out.independence_verified).toBe(false)
+  })
+
   test("the claude route launches through a private --safe-mode wrapper", () => {
     const sb = sandbox(["claude"])
     const runDir = makeRunDir()
@@ -372,7 +386,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
     expect(r.files).toContain("adversarial-cursor.json")
   })
 
-  test("schema-valid output from a peer still running at the hard cap is never published", () => {
+  test("schema-valid output from a peer still running at the hard cap is never published", async () => {
     const sb = sandbox(["cursor-agent"], acpStream({ text: review(), stopReason: null, sleep: 30 }))
     const runDir = makeRunDir()
     const started = Date.now()
@@ -386,7 +400,7 @@ describe("cross-model-doc-review route safety (R17)", () => {
     expect(r.stderr).toContain("peer run ended with incomplete")
     const pids = readFileSync(sb.logs.pids, "utf8").trim().split("\n").map(Number)
     expect(pids).toHaveLength(2)
-    for (const pid of pids) expect(alive(pid)).toBe(false)
+    expect(await survivors(pids)).toEqual([])
   })
 
   test("workspace creation failure skips the provider without calling acpx", () => {
@@ -428,6 +442,13 @@ describe("cross-model-doc-review provider selection (R7, R15, R16)", () => {
     })
     expect(envLog(sb)).toContain(`CODEX_PATH=${path.join(bundle, "codex")}\n`)
     expect(r.files).toContain("adversarial-codex.json")
+  })
+
+  test("the codex route disables the user's Codex plugins so the peer cannot pick up ce-doc-review (issue #1788)", () => {
+    const sb = sandbox(["codex"])
+    const runDir = makeRunDir()
+    run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, { ...sb.env, CODEX_CONFIG: '{"features":{"plugins":true}}' })
+    expect(envLog(sb)).toContain('CODEX_CONFIG={"features":{"plugins":false}}\n')
   })
 
   test("reference states the unset-allowlist contract the script implements", () => {
@@ -596,6 +617,124 @@ describe("cross-model-doc-review skip paths (R11, R16) — non-blocking, no file
     expect(r.stderr).toContain("host serving family unattested")
     expect(calls(sb)).toBe(0)
   })
+
+  describe("omp host family resolved from the session's recorded model", () => {
+    const FOREIGN_HARNESS_MARKERS = ["CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_CI", "GROK_AGENT", "GROK_SESSION_ID", "CURSOR_AGENT", "CURSOR_CONVERSATION_ID", "OPENCODE_TERMINAL"]
+    const entry = (model: string, role?: string) => JSON.stringify({ type: "model_change", model, ...(role ? { role } : {}) })
+    function ompRun(target: string, lines: string[] | null, extra: NodeJS.ProcessEnv = {}) {
+      const sb = sandbox([target])
+      const runDir = makeRunDir()
+      const env: NodeJS.ProcessEnv = { ...sb.env, CROSS_MODEL_HOST_HARNESS: "omp", ...Object.fromEntries(FOREIGN_HARNESS_MARKERS.map((k) => [k, ""])), ...extra }
+      if (lines) {
+        const file = path.join(temp("xmodel-doc-omp-session-"), "session.jsonl")
+        writeFileSync(file, lines.join("\n") + "\n")
+        env.PI_SESSION_FILE = file
+      }
+      return { sb, r: run(["unknown", target, "adversarial", makeDoc(), "plan", "none", runDir], runDir, env), runDir }
+    }
+
+    test.each([
+      ["anthropic/claude-sonnet-5-5", "codex"],
+      ["openai/gpt-5.4", "claude"],
+      ["openai-codex/gpt-6.1-terra", "claude"],
+      ["xai-oauth/grok-4.20-0309-reasoning", "codex"],
+    ])("%s attests a family that lets a different-family peer publish", (model, target) => {
+      const { r } = ompRun(target, [entry(model)])
+      expect(r.files).toContain(`adversarial-${target}.json`)
+    })
+
+    test("the attested family is excluded as a peer", () => {
+      const { sb, r } = ompRun("claude", [entry("anthropic/claude-sonnet-5-5")])
+      expect(r.files).not.toContain("adversarial-claude.json")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("an openai-served host excludes the codex peer", () => {
+      const { sb, r } = ompRun("codex", [entry("openai/gpt-5.4")])
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test.each([
+      ["a gateway-served model", [entry("openrouter/anthropic/claude-sonnet-5-5")]],
+      ["a malformed trailing line", [entry("anthropic/claude-sonnet-5-5"), '{"type":"model_change","mod']],
+      ["a latest entry that is a retry fallback", [entry("anthropic/claude-sonnet-5-5"), entry("openai/gpt-5.4", "fallback")]],
+      ["a latest entry with the undocumented temporary role", [entry("anthropic/claude-sonnet-5-5"), entry("openai/gpt-5.4", "temporary")]],
+      ["no session file", null],
+    ])("%s stays unattested and skips", (_name, lines) => {
+      const { sb, r } = ompRun("codex", lines)
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("host serving family unattested")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test.each([
+      ["CODEX_THREAD_ID", "t-1"],
+      ["CLAUDE_CODE_ENTRYPOINT", "cli"],
+      ["GROK_AGENT", "1"],
+    ])("a nested harness marker %s leaves the inherited session unattested", (marker, value) => {
+      const { sb, r } = ompRun("codex", [entry("anthropic/claude-sonnet-5-5")], { [marker]: value })
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("host serving family unattested")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("a non-omp harness never reads the session file", () => {
+      const { sb, r } = ompRun("codex", [entry("anthropic/claude-sonnet-5-5")], { CROSS_MODEL_HOST_HARNESS: "cursor" })
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(calls(sb)).toBe(0)
+    })
+  })
+
+  describe("pi host family resolved from the model of the session's latest reply", () => {
+    const FOREIGN_HARNESS_MARKERS = ["CLAUDECODE", "OMPCODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_CI", "GROK_AGENT", "GROK_SESSION_ID", "CURSOR_AGENT", "CURSOR_CONVERSATION_ID", "OPENCODE_TERMINAL"]
+    const reply = (provider: string, model: string) => JSON.stringify({ type: "message", message: { role: "assistant", provider, model } })
+    function piRun(target: string, lines: string[] | null, extra: NodeJS.ProcessEnv = {}) {
+      const sb = sandbox([target])
+      const runDir = makeRunDir()
+      const env: NodeJS.ProcessEnv = { ...sb.env, CROSS_MODEL_HOST_HARNESS: "pi", PI_PROVIDER: "", PI_MODEL: "", ...Object.fromEntries(FOREIGN_HARNESS_MARKERS.map((k) => [k, ""])), ...extra }
+      if (lines) {
+        const file = path.join(temp("xmodel-doc-pi-session-"), "session.jsonl")
+        writeFileSync(file, lines.join("\n") + "\n")
+        env.PI_SESSION_FILE = file
+      }
+      return { sb, r: run(["unknown", target, "adversarial", makeDoc(), "plan", "none", runDir], runDir, env) }
+    }
+
+    test("a first-party reply attests a family that lets a different-family peer publish", () => {
+      const { r } = piRun("codex", [reply("anthropic", "claude-sonnet-5-5")])
+      expect(r.files).toContain("adversarial-codex.json")
+    })
+
+    test("the attested family is excluded as a peer", () => {
+      const { sb, r } = piRun("codex", [reply("openai-codex", "gpt-6.1-terra")])
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("an ephemeral session with no file falls back to the model Pi names", () => {
+      const { r } = piRun("codex", null, { PI_PROVIDER: "anthropic", PI_MODEL: "claude-opus-5-5" })
+      expect(r.files).toContain("adversarial-codex.json")
+    })
+
+    test.each([
+      ["a gateway-served model", [reply("openrouter", "anthropic/claude-sonnet-5-5")]],
+      ["a malformed trailing line", [reply("anthropic", "claude-sonnet-5-5"), '{"type":"message","mess']],
+      ["no session file and no named model", null],
+    ])("%s stays unattested and skips with the Pi-specific reason", (_name, lines) => {
+      const { sb, r } = piRun("codex", lines)
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("host serving family unattested; Pi names no first-party model for this session's latest reply")
+      expect(calls(sb)).toBe(0)
+    })
+
+    test("a nested Claude Code marker leaves the inherited session unattested", () => {
+      const { sb, r } = piRun("codex", [reply("anthropic", "claude-sonnet-5-5")], { CLAUDECODE: "1" })
+      expect(r.files).not.toContain("adversarial-codex.json")
+      expect(r.stderr).toContain("another harness's environment marker is set beside Pi's")
+      expect(calls(sb)).toBe(0)
+    })
+  })
 })
 
 describe("cross-model-doc-review outcome classification", () => {
@@ -620,12 +759,30 @@ describe("cross-model-doc-review outcome classification", () => {
     expect(r.stderr).not.toContain("pre-egress")
   })
 
+  test("a model the provider rejects in reply text is named in skip evidence with the advertised models", () => {
+    const sb = sandbox(["codex"], path.join(STREAMS, "model-rejected-end-turn"))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, sb.env)
+    expect(r.files).not.toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.")
+    expect(r.stderr).toContain("peer skip evidence (advertised models): gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol")
+  })
+
   test("a cancelled turn that exits 0 is not published even with findings in its reply", () => {
     const sb = sandbox(["codex"], acpStream({ text: review(), stopReason: "cancelled", exit: 0 }))
     const runDir = makeRunDir()
     const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, sb.env)
     expect(r.files).not.toContain("adversarial-codex.json")
     expect(r.stderr).toContain("peer skip evidence: stopReason=cancelled")
+  })
+
+  test("a cancelled turn after a refused permission names that refusal", () => {
+    const sb = sandbox(["codex"], acpStream({ text: review(), stopReason: "cancelled", exit: 5 }))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, sb.env)
+    expect(r.files).not.toContain("adversarial-codex.json")
+    expect(r.stderr).toContain("peer skip evidence: permission request cancelled the turn")
+    expect(r.stderr).not.toContain("peer skip evidence: stopReason=cancelled")
   })
 
   test("a provider error is classified failed with bounded evidence that never echoes the prompt", () => {
@@ -737,6 +894,51 @@ describe("cross-model-doc-review acpx transport preflight", () => {
     expect(r.stderr).not.toContain("peer skip evidence")
   })
 
+  test("the first line of a Node startup error is the pre-egress reason", () => {
+    const base = path.join(temp("xmodel-doc-node-"), "s")
+    const line = "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '@openclaw/fs-safe/dist/advanced.js'"
+    writeFileSync(`${base}.stderr`, `node:internal/modules/esm/resolve:275\n${line}\n    at Function._resolveFilename (node:internal/modules/cjs/loader:1207:15)\n`)
+    writeFileSync(`${base}.exit`, "1\n")
+    const sb = sandbox(["codex"], base)
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, sb.env)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, route): ${line}`)
+    expect(r.stderr).not.toContain("acpx exited 1 before sending the prompt")
+    expect(r.files).toEqual([])
+  })
+
+  test.each([...ROUTES] as string[])("only the codex prompt rules out escalation requests (%s)", (route) => {
+    const sb = sandbox([ROUTE_BIN[route]])
+    const runDir = makeRunDir()
+    const target = route.startsWith("grok") ? "grok" : route
+    const r = run([target === "claude" ? "codex" : "claude", target, "adversarial", makeDoc(), "plan", "none", runDir], runDir, {
+      ...sb.env,
+      CROSS_MODEL_FIXED_ROUTE: route,
+      ...(route === "grok-cursor" ? { CROSS_MODEL_PEERS: "grok,cursor" } : {}),
+    })
+    expect(r.files.some((file) => file.startsWith("adversarial-"))).toBe(true)
+    const sent = readFileSync(`${sb.logs.prompt}.1`, "utf8")
+    const rule = "never request escalated or out-of-sandbox permissions"
+    if (route === "codex") {
+      expect(sent).toContain(rule)
+      expect(sent).toContain("name the unrun check in residual_risks")
+    } else {
+      expect(sent).not.toContain(rule)
+    }
+  })
+
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("%s reports the date cutoff after one policy-respecting refresh (%s)", (stream, scope) => {
+    const sb = sandbox(["codex"], path.join(STREAMS, stream))
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, sb.env)
+    expect(calls(sb)).toBe(2)
+    expect(r.stderr).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(r.stderr).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(r.stderr).not.toContain("stale cached")
+    expect(r.stderr).toContain("npm policy unchanged")
+    expect(r.files).toEqual([])
+  })
+
   test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {
     const base = path.join(temp("xmodel-doc-stale-"), "s")
     for (const ext of ["stderr", "exit"]) writeFileSync(`${base}.1.${ext}`, readFileSync(path.join(STREAMS, `stale-npm-metadata.${ext}`)))
@@ -799,9 +1001,90 @@ function unadvertisedStream(model: string, available: string, base: string) {
   writeFileSync(`${base}.exit`, "1\n")
 }
 
+// What acpx@0.22.0 prints when codex-acp refuses a session option the account's
+// model does not list: the option request fails before any prompt is sent.
+function configRejectedStream(configId: string, value: string, base: string) {
+  const rpc = (body: Record<string, unknown>) => JSON.stringify({ jsonrpc: "2.0", ...body })
+  const sessionId = "stub-session-1"
+  writeFileSync(`${base}.stdout`, [
+    rpc({ id: 0, method: "initialize", params: { protocolVersion: 1 } }),
+    rpc({ id: 0, result: { protocolVersion: 1, authMethods: [] } }),
+    rpc({ id: 1, method: "session/new", params: { cwd: "/tmp/cwd", mcpServers: [] } }),
+    rpc({ id: 1, result: { sessionId } }),
+    rpc({ id: 2, method: "session/set_config_option", params: { sessionId, configId: "mode", value: "read-only" } }),
+    rpc({ id: 2, result: { configOptions: [] } }),
+    rpc({ id: 3, method: "session/set_config_option", params: { sessionId, configId, value } }),
+    rpc({ id: 3, error: { code: -32602, message: "Invalid params" } }),
+  ].join("\n") + "\n")
+  writeFileSync(`${base}.exit`, "1\n")
+}
+
+describe("cross-model-doc-review codex account catalog (#2074, #2075)", () => {
+  const codexRun = (base: string, env: Record<string, string> = {}) => {
+    const sb = sandbox(["codex"], base)
+    const runDir = makeRunDir()
+    const r = run(["claude", "codex", "adversarial", makeDoc(), "plan", "none", runDir], runDir, { ...sb.env, ...env })
+    return { sb, runDir, r }
+  }
+
+  test("an account without gpt-6.1-terra falls back once to gpt-6.1-sol", () => {
+    const base = path.join(temp("xmodel-doc-stream-"), "s")
+    unadvertisedStream("gpt-6.1-terra", "gpt-6.1-sol, gpt-6-luna", `${base}.1`)
+    acpStream({ text: review(), meta: { modelId: "gpt-6.1-sol" } }, `${base}.2`)
+    const { sb, runDir, r } = codexRun(base)
+    expect(calls(sb)).toBe(2)
+    expect(r.stderr).toContain("falling back to gpt-6.1-sol")
+    expect(argv(sb).join(" ")).toContain("--model gpt-6.1-sol")
+    expect(published(runDir, "adversarial-codex.json").model_requested).toBe("gpt-6.1-sol")
+  })
+
+  test("a configured codex model the account lacks stays exact", () => {
+    const base = path.join(temp("xmodel-doc-stream-"), "s")
+    unadvertisedStream("gpt-6.1-terra", "gpt-6.1-sol", `${base}.1`)
+    const { sb, r } = codexRun(base, { CROSS_MODEL_MODEL_OVERRIDE_TARGET: "codex", CROSS_MODEL_MODEL_OVERRIDE: "gpt-6.1-terra" })
+    expect(calls(sb)).toBe(1)
+    expect(r.stderr).toContain("did not advertise that model")
+    expect(r.files).toEqual([])
+  })
+
+  test("a refused editorial reasoning_effort retries once without it and records the effort unverified", () => {
+    const base = path.join(temp("xmodel-doc-stream-"), "s")
+    configRejectedStream("reasoning_effort", "high", `${base}.1`)
+    acpStream({ text: review(), meta: { modelId: "gpt-6.1-terra" } }, `${base}.2`)
+    const { sb, runDir, r } = codexRun(base)
+    expect(calls(sb)).toBe(2)
+    expect(r.stderr).toContain("refused reasoning_effort=high")
+    const retried = argv(sb)
+    expect(retried).toContain("mode=read-only")
+    expect(retried.some((a) => a.startsWith("reasoning_effort="))).toBe(false)
+    expect(published(runDir, "adversarial-codex.json").effort_requested).toBe("unverified")
+  })
+
+  test("a refused configured effort skips and names the refused option", () => {
+    const base = path.join(temp("xmodel-doc-stream-"), "s")
+    configRejectedStream("reasoning_effort", "xhigh", `${base}.1`)
+    const { sb, r } = codexRun(base, { CROSS_MODEL_EFFORT_OVERRIDE: "xhigh" })
+    expect(calls(sb)).toBe(1)
+    expect(r.stderr).toMatch(/transport unavailable \(pre-egress, route\): Invalid params .*reasoning_effort=xhigh/)
+    expect(r.files).toEqual([])
+  })
+
+  test("the model fallback and the effort retry each apply once on the same run", () => {
+    const base = path.join(temp("xmodel-doc-stream-"), "s")
+    unadvertisedStream("gpt-6.1-terra", "gpt-6.1-sol", `${base}.1`)
+    configRejectedStream("reasoning_effort", "high", `${base}.2`)
+    acpStream({ text: review(), meta: { modelId: "gpt-6.1-sol" } }, `${base}.3`)
+    const { sb, runDir } = codexRun(base)
+    expect(calls(sb)).toBe(3)
+    const out = published(runDir, "adversarial-codex.json")
+    expect([out.model_requested, out.effort_requested]).toEqual(["gpt-6.1-sol", "unverified"])
+  })
+})
+
 describe("cross-model-doc-review antigravity route", () => {
   test("--emit-adapter antigravity denies every permission and isolates GEMINI_HOME", () => {
     const command = emitAdapter("antigravity")
+    expect(command).toContain(`npx -y --package ${ACPX_RANGE} -- env -u npm_config_package acpx --cwd`)
     expect(command).toContain("GEMINI_HOME=<gemini-home>")
     expect(command).toContain("--deny-all --model gemini-4-argon antigravity exec --config-option mode=default --config-option thinking_level=high")
   })
@@ -878,7 +1161,8 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
   })
 
   test.each([
-    ["codex", "claude", { quota: { model_usage: [{ model: "gpt-6-luna", token_count: { totalTokens: 1200 } }] } }, "gpt-6-luna", false],
+    ["codex", "claude", { quota: { model_usage: [{ model: "gpt-6.1-terra", token_count: { totalTokens: 1200 } }] } }, "gpt-6.1-terra", false],
+    ["codex", "claude", { quota: { model_usage: [{ model: "gpt-6-luna", token_count: { totalTokens: 1200 } }] } }, "gpt-6-luna", true],
     ["claude", "codex", { quota: { model_usage: [
       { model: "claude-haiku-4-5", token_count: { totalTokens: 5000 } },
       { model: "claude-opus-5-5-20260801", token_count: { totalTokens: 100 } },
@@ -894,6 +1178,14 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
     expect(r.stderr.includes("model mismatch")).toBe(mismatch)
   })
 
+  test("an OpenCode effort override sets its ACP effort option", () => {
+    expect(emitAdapter("opencode", { CROSS_MODEL_EFFORT_OVERRIDE: "xhigh" })).toContain("--config-option mode=plan --config-option effort=xhigh --file")
+  })
+
+  test("without an effort override OpenCode keeps its own default", () => {
+    expect(emitAdapter("opencode")).not.toContain("effort=")
+  })
+
   test("a valid effort override reaches the adapter; an unsupported level is rejected before launch", () => {
     let sb = sandbox(["claude"])
     let runDir = makeRunDir()
@@ -906,7 +1198,7 @@ describe("cross-model-doc-review normalization (R18, KTD5)", () => {
     expect(argv(sb)).toContain("effort=xhigh")
     expect(r.stderr).toContain("(effort xhigh)")
 
-    for (const [route, effort] of [["claude", "minimal"], ["grok-cli", "max"], ["opencode", "high"], ["composer", "high"]]) {
+    for (const [route, effort] of [["claude", "minimal"], ["grok-cli", "max"], ["opencode", "minimal"], ["composer", "high"]]) {
       sb = sandbox([ROUTE_BIN[route]])
       runDir = makeRunDir()
       const target = route.startsWith("grok") ? "grok" : route

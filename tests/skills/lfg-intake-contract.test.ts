@@ -38,8 +38,10 @@ describe("lfg work source and routes", () => {
     }
   })
 
-  test("only a verified plan or a fixed debug return is a work source, and nothing is discovered on disk", () => {
-    expect(lfg).toMatch(/only two things qualify/)
+  test("only a verified plan, a one-pass statement, or a fixed debug return is a work source, and nothing is discovered on disk", () => {
+    expect(lfg).toMatch(/only three things qualify/)
+    expect(intake).toContain("One pass, no plan.")
+    expect(workTriage).toContain("a work statement the caller already sized")
     expect(lfg).toMatch(/`fixed` return from `ce-debug`/)
     expect(lfg).toMatch(/Never search the plans directory/)
     // ce-work's blank-invocation discovery exists; lfg must never reach it.
@@ -87,6 +89,8 @@ describe("lfg work source and routes", () => {
     expect(compound).toBeLessThan(ship)
     expect(lfg).toContain("mode:non-interactive")
     expect(reviewFollowup).toContain("## Step 7 — compound before shipping")
+    expect(reviewFollowup).toContain("`Recommended form`")
+    expect(readRepoFile("skills/ce-compound/references/report.md")).toContain("Recommended form:")
   })
 })
 
@@ -136,6 +140,38 @@ describe("ce-debug return-to-caller seam (ce-debug <-> lfg)", () => {
       expect(debugReturn, `ce-debug must return ${field}`).toMatch(new RegExp('"' + field + '":'))
       expect(debugReturnGate, `lfg must require ${field}`).toMatch(new RegExp("`" + field + "(?:`|:)"))
     }
+    // Edits the calling session made before invoking ce-debug ship with the fix; both
+    // ends must name the field so lfg's offered-scope check can see them.
+    expect(debugReturn).toContain('"caller_edits":')
+    expect(debugReturnGate).toContain("`pre_fix_scope.caller_edits`")
+  })
+
+  test("the always-on signal proposal reaches the user without becoming required or implemented", () => {
+    expect(debugReturn).toContain('"prevention_signal":')
+    expect(debugReturnGate).toContain("does not require `prevention_signal`")
+    expect(debugReturnGate).toMatch(/no step in this run implements it/)
+    expect(debugReturnGate).toMatch(/Step 11, close-out:[^\n]*`prevention_signal`/)
+  })
+
+  // ce-debug can return `fixed` while leaving a sibling site as a needs-human residual
+  // (PR #2080 review); lfg must carry it into the decision set, not drop it with the fix.
+  test("needs-human residuals on a fixed ce-debug return reach the step 10 decision set", () => {
+    expect(readRepoFile("skills/ce-debug/references/fix.md")).toContain("`needs-human` residual beside the fixed status")
+    expect(debugReturnGate).toMatch(/`fixed` return may still carry `needs-human` `residuals`/)
+    expect(shippingTail).toMatch(/Step 10[\s\S]*?`residuals` that `ce-debug`'s `fixed` return carried/)
+  })
+
+  // Five audited lfg/babysit runs (2026-11-08) ended ce-debug with a commit and no return,
+  // and the same-session caller carried on, so the offered-scope check never ran.
+  test("a ce-debug run that ends without its return stops the run like a malformed one", () => {
+    expect(debugReturnGate).toMatch(/ends without emitting its return at all is malformed/)
+  })
+
+  test("an open PR elsewhere ends the defect route without a fix, and the stop shows why", () => {
+    expect(debugReturn).toMatch(/on a branch other than the one you are fixing/)
+    expect(debugReturn).toMatch(/`diagnosed-no-fix`[^\n]*otherwise `summary` does/)
+    // The link lands in `summary`, so the stop must report it.
+    expect(debugReturnGate).toMatch(/stop the run with the return's `summary`, `root_cause`/)
   })
 
   test("the debug gate requires the same evidence facts the ce-work gate requires", () => {

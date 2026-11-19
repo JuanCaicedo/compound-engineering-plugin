@@ -2,7 +2,7 @@
 // opt-in: `bun run test:acpx-contract` sets ACPX_CONTRACT=1. ACPX_VERSION overrides the pin.
 import { afterAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import path from "node:path"
 import { ACPX_PIN } from "./helpers/acpx-pin"
@@ -42,12 +42,13 @@ function acpx(
   options: { cwd: string; home: string; env?: Record<string, string>; onStdout?: (stdout: string, child: ChildProcess) => void },
 ): Promise<Run> {
   const started = Date.now()
-  const child = spawn("npx", ["-y", `acpx@${VERSION}`, ...args], {
+  // As the workers launch it: npx's npm_config_package would make acpx's own npx-launched adapters resolve inside acpx.
+  const child = spawn("npx", ["-y", "--package", `acpx@${VERSION}`, "--", "env", "-u", "npm_config_package", "acpx", ...args], {
     cwd: options.cwd,
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
-      // A private HOME keeps ~/.acpx/config.json out; the npm cache stays shared.
+      // A private HOME keeps ~/.acpx/config.json out; the runner gives each parallel run its own npm cache.
       HOME: options.home,
       npm_config_cache: process.env.npm_config_cache || path.join(homedir(), ".npm"),
       npm_config_prefer_offline: "true",
@@ -115,6 +116,65 @@ describe.skipIf(process.env.ACPX_CONTRACT !== "1" || process.platform === "win32
     expect(run.stdout.trim()).toBe(VERSION)
   })
 
+  test("the built-in worker routes exist throughout the supported range", async () => {
+    const run = await acpx(["--help"], workspace())
+    expect(run.code).toBe(0)
+    const routes = ["codex", "claude", "cursor", "grok-build", "antigravity", "pi"]
+    for (const route of routes) expect(run.stdout).toMatch(new RegExp(`^\\s{2}${route}\\s`, "m"))
+  })
+
+  // The workers' Pi tool limits live only in the PI_ACP_PI_COMMAND wrapper; a pi-acp that
+  // ignored it would start the pi on PATH with every tool and the checkout's Pi files.
+  test("the built-in pi route starts Pi through PI_ACP_PI_COMMAND, never the pi on PATH", async () => {
+    const ws = workspace()
+    const bin = path.join(ws.home, "bin")
+    mkdirSync(bin)
+    const log = path.join(ws.home, "launches.log")
+    writeFileSync(path.join(bin, "pi"), `#!/bin/sh\necho "path-pi $*" >> '${log}'\nexit 1\n`, { mode: 0o755 })
+    const wrapper = path.join(ws.home, "pi-launch")
+    writeFileSync(wrapper, `#!/bin/sh\necho "wrapper $*" >> '${log}'\nexit 1\n`, { mode: 0o755 })
+    const run = await acpx(["--cwd", ws.cwd, "--format", "json", "--timeout", "30", "pi", "exec", "--file", ws.prompt], {
+      ...ws,
+      env: { PATH: `${bin}:${process.env.PATH}`, PI_ACP_PI_COMMAND: wrapper },
+    })
+    const launches = existsSync(log) ? readFileSync(log, "utf8") : ""
+    // An adapter that never started leaves the log empty; acpx's output says why.
+    if (!launches) console.error(`acpx exited ${run.code}:\n${run.stdout.slice(-2000)}\n${run.stderr.slice(-2000)}`)
+    expect(launches).toContain("wrapper --mode rpc")
+    expect(launches).not.toContain("path-pi --mode rpc")
+  })
+
+  test.each(["--approve-reads", "--approve-all"])("worker flags support MCP config, turn limits, and config options with %s", async (permission) => {
+    const ws = workspace()
+    const mcp = path.join(ws.cwd, "mcp.json")
+    writeFileSync(mcp, '{"mcpServers":[]}\n')
+    const run = withLines(await acpx([
+      "--cwd", ws.cwd, "--format", "json", "--mcp-config", mcp, "--timeout", "5",
+      permission, "--non-interactive-permissions", "deny", "--max-turns", "25", "--model", "stub-model-a",
+      "--agent", `node ${STUB} models`, "exec", "--config-option", "mode=read-only",
+      "--config-option", "reasoning_effort=high", "--file", ws.prompt,
+    ], ws))
+    expect(run.code).toBe(0)
+    expect(promptResponse(run)?.result?.stopReason).toBe("end_turn")
+    expect(run.lines.find((line) => line.method === "session/new")?.params.mcpServers).toEqual([])
+    expect(run.lines.filter((line) => line.method === "session/set_config_option").map((line) => line.params)).toEqual([
+      { sessionId: "stub-session-1", configId: "mode", value: "read-only" },
+      { sessionId: "stub-session-1", configId: "reasoning_effort", value: "high" },
+    ])
+  })
+
+  test("a refused config option ends the run before any session/prompt, with the error under that request's id", async () => {
+    const ws = workspace()
+    const run = withLines(await acpx([
+      "--cwd", ws.cwd, "--format", "json", "--timeout", "5", "--agent", `node ${STUB} refuse-effort`, "exec",
+      "--config-option", "mode=read-only", "--config-option", "reasoning_effort=high", "--file", ws.prompt,
+    ], ws))
+    expect(run.code).not.toBe(0)
+    expect(promptRequest(run)).toBeUndefined()
+    const refused = run.lines.find((line) => line.method === "session/set_config_option" && line.params?.configId === "reasoning_effort")
+    expect(run.lines.find((line) => line.method === undefined && line.id === refused?.id)?.error?.code).toBe(-32602)
+  })
+
   test("a reply that ends the turn exits 0 with one message chunk and an end_turn result", async () => {
     const run = await exec("end_turn")
     expect(run.code).toBe(0)
@@ -129,6 +189,19 @@ describe.skipIf(process.env.ACPX_CONTRACT !== "1" || process.platform === "win32
     expect(answer?.result?.outcome).toEqual({ outcome: "selected", optionId: "reject" })
     expect(run.code).toBe(5)
     expect(promptResponse(run)?.result?.stopReason).toBe("end_turn")
+  })
+
+  test.each(["Truncate: build.log", "Delete README.md", "Run cat > output.txt"])("approve-reads denies an ambiguous destructive request: %s", async (title) => {
+    const ws = workspace()
+    const run = withLines(await acpx([
+      "--format", "json", "--cwd", ws.cwd, "--approve-reads", "--non-interactive-permissions", "deny",
+      "--agent", `node ${STUB} permission-no-kind`, "exec", "--file", ws.prompt,
+    ], { ...ws, env: { ACP_STUB_PERMISSION_TITLE: title } }))
+    const ask = run.lines.find((line) => line.method === "session/request_permission")
+    expect(ask).toBeDefined()
+    const answer = run.lines.find((line) => line.method === undefined && line.id === ask?.id)
+    expect(answer?.result?.outcome).toEqual({ outcome: "selected", optionId: "reject" })
+    expect(run.code).toBe(5)
   })
 
   test("a JSON-RPC error from the agent exits 1 and answers the prompt id with that error", async () => {

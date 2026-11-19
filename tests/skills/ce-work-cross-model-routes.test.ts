@@ -17,8 +17,8 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { ACPX_PIN } from "../helpers/acpx-pin"
-import { alive } from "../helpers/process"
+import { ACPX_RANGE } from "../helpers/acpx-pin"
+import { alive, survivors } from "../helpers/process"
 import {
   acpNpxBin, acpStream as acpStreamAt, COMPLETED_RESULT as COMPLETED, signInWaitStream, type StreamSpec, unadvertisedStream,
 } from "./helpers/ce-work-acp-stub"
@@ -35,7 +35,7 @@ const CONTROLLER = path.join(process.cwd(), "skills/ce-work/scripts/unit-workspa
 const SCHEMA = path.join(process.cwd(), "skills/ce-work/references/implementation-result-schema.json")
 const STREAMS = path.join(process.cwd(), "tests/fixtures/acpx-streams")
 type PreparedUnit = { authorization_path: string; workspace: string; packet_path: string; result_dir: string }
-const ROUTES = ["codex", "claude", "grok-cli", "cursor", "composer", "grok-cursor", "opencode", "antigravity"] as const
+const ROUTES = ["codex", "claude", "grok-cli", "cursor", "composer", "grok-cursor", "opencode", "antigravity", "pi"] as const
 type Route = typeof ROUTES[number]
 const GROK_CURSOR_PRESET = "grok-4.7[context=256k,reasoning_effort=high,fast=true]"
 const COMPOSER_PRESET = "composer-2.5[fast=true]"
@@ -48,6 +48,7 @@ const ROUTE_CONTRACTS = {
   "grok-cursor": { target: "grok", intermediaries: ["cursor"] },
   opencode: { target: "opencode", intermediaries: [] },
   antigravity: { target: "antigravity", intermediaries: [] },
+  pi: { target: "pi", intermediaries: [] },
 } as const
 const roots: string[] = []
 const templateRoots: string[] = []
@@ -275,12 +276,13 @@ describe("ce-work fixed write routes", () => {
       contains: ["GEMINI_HOME=<gemini-home>", "antigravity exec --config-option mode=auto_edit --config-option thinking_level=high"],
       model: "gemini-4-argon",
     },
+    pi: { contains: ["PI_ACP_PI_COMMAND=<pi-wrapper>", "pi exec --file <prompt-file>"] },
   }
 
-  test.each([...ROUTES])("%s runs through the pinned acpx with every permission approved in the workspace", (route) => {
+  test.each([...ROUTES])("%s uses its supported acpx range with every permission approved in the workspace", (route) => {
     const out = emit(route, cleanEnv())
     expect(out.status).toBe(0)
-    expect(out.stdout).toContain(`npx -y acpx@${ACPX_PIN} --cwd <workspace> --format json --mcp-config <mcp-config>`)
+    expect(out.stdout).toContain(`npx -y --package ${ACPX_RANGE} -- env -u npm_config_package acpx --cwd <workspace> --format json --mcp-config <mcp-config>`)
     expect(out.stdout).toContain("--approve-all")
     expect(out.stdout).toContain("--file <prompt-file>")
     const expected = ROUTE_ARGV[route]
@@ -296,11 +298,13 @@ describe("ce-work fixed write routes", () => {
     ["claude", "max", "effort=max"],
     ["grok-cli", "medium", "reasoning_effort=medium"],
     ["antigravity", "low", "thinking_level=low"],
+    ["opencode", "max", "mode=build --config-option effort=max"],
+    ["opencode", "none", "mode=build --config-option effort=none"],
   ])("CROSS_MODEL_EFFORT_OVERRIDE retunes %s to %s", (route, value, option) => {
     expect(emit(route, { ...cleanEnv(), CROSS_MODEL_EFFORT_OVERRIDE: value }).stdout).toContain(option)
   })
 
-  // Cursor fixes effort in its model preset and OpenCode has no effort option over ACP.
+  // Cursor fixes effort in its model preset.
   test.each([
     ["codex", "minimal"],
     ["codex", "none"],
@@ -309,8 +313,9 @@ describe("ce-work fixed write routes", () => {
     ["cursor", "high"],
     ["composer", "high"],
     ["grok-cursor", "high"],
-    ["opencode", "max"],
+    ["opencode", "minimal"],
     ["antigravity", "xhigh"],
+    ["pi", "high"],
   ])("CROSS_MODEL_EFFORT_OVERRIDE rejects %s at %s, failing closed before dispatch", (route, value) => {
     const proc = emit(route, { ...cleanEnv(), CROSS_MODEL_EFFORT_OVERRIDE: value })
     expect(proc.status).toBe(2)
@@ -386,6 +391,8 @@ describe("ce-work fixed write routes", () => {
       npm_config_cache: path.join(f.root, "npm-cache"),
       npm_config_registry: "http://registry.invalid/",
       NPM_CONFIG_USERCONFIG: path.join(f.root, "npmrc"),
+      npm_config_min_release_age: "60",
+      NPM_CONFIG_BEFORE: "2026-08-01",
       ...secrets,
     }))
 
@@ -394,6 +401,8 @@ describe("ce-work fixed write routes", () => {
     expect(childEnv).toContain(`npm_config_cache=${path.join(f.root, "npm-cache")}`)
     expect(childEnv).toContain("npm_config_registry=http://registry.invalid/")
     expect(childEnv).toContain(`NPM_CONFIG_USERCONFIG=${path.join(f.root, "npmrc")}`)
+    expect(childEnv).toContain("npm_config_min_release_age=60")
+    expect(childEnv).toContain("NPM_CONFIG_BEFORE=2026-08-01")
     expect(childEnv).toContain("npm_config_prefer_offline=true")
     expect(childEnv).toContain(`CURSOR_CONFIG_DIR=${cursorConfig}`)
     for (const [name, value] of Object.entries(secrets)) {
@@ -422,6 +431,22 @@ describe("ce-work fixed write routes", () => {
     const launch = captured(f, "launch-env")
     expect(launch).toContain("--safe-mode")
     expect(launch).toContain(path.join(bin, "claude"))
+  })
+
+  test("pi launches the real pi through a private wrapper that ignores project Pi files", () => {
+    const f = fixture()
+    const bin = stubBin(f)
+    const result = run("pi", f, withBin(bin))
+    expect(result.code).toBe(0)
+    const launch = captured(f, "launch-env")
+    expect(launch).toContain(`exec ${path.join(bin, "pi")} --no-approve "$@"`)
+    expect(flagValue(argv(f), "--model")).toBeUndefined()
+  })
+
+  test("a pi model pin must be provider/model", () => {
+    const pin = (model: string) => emit("pi", { ...cleanEnv(), CE_WORK_MODEL_OVERRIDE_TARGET: "pi", CE_WORK_MODEL_OVERRIDE: model })
+    expect(pin("anthropic/claude-opus-5-5").stdout).toContain("--model anthropic/claude-opus-5-5 pi exec")
+    expect(pin("claude-opus-5-5").status).toBe(2)
   })
 
   test("target-scoped model overrides do not make unrelated route probes unavailable", () => {
@@ -513,6 +538,7 @@ describe("ce-work fixed write routes", () => {
     ["grok-cursor", null],
     ["opencode", null],
     ["antigravity", "thinking_level=high"],
+    ["pi", null],
   ] as const)("%s without an authorized effort keeps the 13-key schema and its default effort argv", (route, effort) => {
     const f = fixture()
     const result = run(route, f, withBin(stubBin(f)))
@@ -533,6 +559,7 @@ describe("ce-work fixed write routes", () => {
     ["claude", "max", "effort=max"],
     ["grok-cli", "low", "reasoning_effort=low"],
     ["antigravity", "low", "thinking_level=low"],
+    ["opencode", "high", "effort=high"],
   ] as const)("%s builds its effort option from the authorized effort %s", (route, effort, expected) => {
     const f = fixture()
     const digest = createHash("sha256").update(readFileSync(f.packet)).digest("hex")
@@ -562,7 +589,7 @@ describe("ce-work fixed write routes", () => {
   test.each([
     ["cursor", "high"],
     ["grok-cli", "max"],
-    ["opencode", "max"],
+    ["opencode", "minimal"],
     ["antigravity", "xhigh"],
   ] as const)("an authorized effort the %s route cannot honor publishes an unavailable receipt", (route, effort) => {
     const f = fixture()
@@ -671,7 +698,7 @@ describe("ce-work fixed write routes", () => {
   // npm launches acpx through `sh -c`; Ubuntu's dash does not exec the command, so
   // a TERM sent to the npx leader alone stops at the shell and leaves acpx and the
   // agent running. The route must be stopped as a whole process group.
-  test("stopping a route at the raw-output cap stops its descendants too", () => {
+  test("stopping a route at the raw-output cap stops its descendants too", async () => {
     const f = fixture()
     const pidFile = path.join(f.root, "grandchild.pid")
     const bin = stubBin(f, acpStream(), `sleep 30 & echo $! > '${pidFile}'; printf '%02048d' 0; wait; exit 0`)
@@ -679,7 +706,7 @@ describe("ce-work fixed write routes", () => {
     expect(result.result.failure_reason).toContain("exceeded 256 bytes")
     const grandchild = Number(readFileSync(pidFile, "utf8").trim())
     expect(grandchild).toBeGreaterThan(0)
-    expect(alive(grandchild)).toBe(false)
+    expect(await survivors([grandchild])).toEqual([])
   })
 
   test("an app-bundled codex CLI off PATH satisfies the codex route (issue #1272)", () => {
@@ -693,6 +720,14 @@ describe("ce-work fixed write routes", () => {
     const result = run("codex", f, { ...cleanEnv(), PATH: isolatedPath(bin), CROSS_MODEL_CODEX_APP_DIRS: bundle })
     expect(result.result.terminal_status).toBe("completed")
     expect(captured(f, "launch-env")).toContain(`CODEX_PATH=${path.join(bundle, "codex")}`)
+  })
+
+  test("the codex route disables the user's Codex plugins so the peer cannot pick up CE skills (issue #1788)", () => {
+    const f = fixture()
+    const bin = stubBin(f)
+    const result = run("codex", f, { ...cleanEnv(), PATH: isolatedPath(bin) })
+    expect(result.result.terminal_status).toBe("completed")
+    expect(captured(f, "launch-env")).toContain('CODEX_CONFIG={"features":{"plugins":false}}\n')
   })
 
   test.each([...ROUTES])("%s is unavailable when enforceable confinement is required", (route) => {
@@ -720,6 +755,23 @@ describe("ce-work acpx outcomes", () => {
     expect(ok.result.terminal_status).toBe("completed")
   })
 
+  test("a model the provider rejects in reply text is named in the failure reason with the advertised models", () => {
+    const f = fixture()
+    const result = run("codex", f, withBin(stubBin(f, path.join(STREAMS, "model-rejected-end-turn"))))
+    expect(result.code).toBe(1)
+    expect(result.result.terminal_status).toBe("failed")
+    expect(result.result.failure_reason).toContain("The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account.")
+    expect(result.result.failure_reason).toContain("advertised models: gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol")
+  })
+
+  test("a cancelled turn after a refused permission names that refusal", () => {
+    const f = fixture()
+    const result = run("codex", f, withBin(stubBin(f, acpStream({ stopReason: "cancelled", exit: 5, text: "partial" }))))
+    expect(result.code).toBe(1)
+    expect(result.result.failure_reason).toContain("permission request cancelled the turn")
+    expect(result.result.failure_reason).not.toContain("stopReason=cancelled")
+  })
+
   test.each([
     ["cancelled", acpStream({ stopReason: "cancelled" }), "ended with cancelled"],
     ["errored", acpStream({ error: "quota exhausted", exit: 1 }), "quota exhausted"],
@@ -735,6 +787,19 @@ describe("ce-work acpx outcomes", () => {
     expect(argv(f)).toContain("grok-build")
   })
 
+  test("the first line of a Node startup error is the pre-egress reason", () => {
+    const f = fixture()
+    const base = path.join(temp("ce-work-node-"), "s")
+    const line = "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '@openclaw/fs-safe/dist/advanced.js'"
+    writeFileSync(`${base}.stderr`, `node:internal/modules/esm/resolve:275\n${line}\n    at Function._resolveFilename (node:internal/modules/cjs/loader:1207:15)\n`)
+    writeFileSync(`${base}.exit`, "1\n")
+    const result = run("claude", f, withBin(stubBin(f, base)))
+    expect(result.code).toBe(2)
+    expect(result.result.terminal_status).toBe("unavailable")
+    expect(result.result.failure_reason).toContain(`transport unavailable (pre-egress, route): ${line}`)
+    expect(result.result.failure_reason).not.toContain("acpx exited")
+  })
+
   test.each([
     ["npm could not fetch acpx", path.join(STREAMS, "npm-fetch-failure"), "pre-egress, shared): npm error"],
     ["the adapter rejected the model", path.join(STREAMS, "unknown-model"), "pre-egress, route): Cannot apply --model"],
@@ -745,6 +810,18 @@ describe("ce-work acpx outcomes", () => {
     expect(result.result.terminal_status).toBe("unavailable")
     expect(result.result.actual_route).toBeNull()
     expect(result.result.failure_reason).toContain(`transport unavailable (${reason}`)
+  })
+
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("%s reports the date cutoff after one policy-respecting refresh (%s)", (stream, scope) => {
+    const f = fixture()
+    const result = run("codex", f, withBin(acpNpxBin(temp("ce-work-bin-"), f.capture, path.join(STREAMS, stream), "", true)))
+    expect(captured(f, "calls").trim()).toBe("2")
+    expect(result.code).toBe(2)
+    expect(result.result.terminal_status).toBe("unavailable")
+    expect(result.result.failure_reason).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(result.result.failure_reason).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(result.stderr).not.toContain("stale cached")
+    expect(result.stderr).toContain("npm policy unchanged")
   })
 
   test("an npm resolve on stale cached metadata retries the same route once with fresh metadata", () => {
@@ -813,6 +890,18 @@ describe("ce-work antigravity route", () => {
     return spawnSync("bash", [SCRIPT, "--check-model", "antigravity", model], { encoding: "utf8", env })
   }
 
+  test.each([["npm-release-age", "shared"], ["npm-release-age-adapter", "route"]])("--check-model reports %s after one policy-respecting refresh (%s)", (stream, scope) => {
+    const f = fixture()
+    const bin = acpNpxBin(temp("ce-work-bin-"), f.capture, path.join(STREAMS, stream), "", true)
+    const check = checkModel(FLASH, { ...cleanEnv(), PATH: isolatedPath(bin), HOME: temp("ce-work-real-home-") })
+    expect(captured(f, "calls").trim()).toBe("2")
+    expect(check.status).toBe(2)
+    expect(check.stderr).toContain(`transport unavailable (pre-egress, ${scope}): npm could not resolve ${ACPX_RANGE}`)
+    expect(check.stderr).toContain("check min-release-age/before policy or wait for the cooldown")
+    expect(check.stderr).not.toContain("stale cached")
+    expect(check.stderr).toContain("npm policy unchanged")
+  })
+
   test("--check-model retries once with fresh npm metadata when the cached metadata is stale", () => {
     const f = fixture()
     const bin = acpNpxBin(temp("ce-work-bin-"), f.capture, staleThenStream(() => {
@@ -829,6 +918,7 @@ describe("ce-work antigravity route", () => {
 
   test("--emit-adapter strips Google credentials and runs Argon in auto_edit mode with a private GEMINI_HOME", () => {
     const out = emit("antigravity", cleanEnv()).stdout
+    expect(out).toContain(`npx -y --package ${ACPX_RANGE} -- env -u npm_config_package acpx --cwd`)
     expect(out).toStartWith("env -u GEMINI_API_KEY -u GOOGLE_API_KEY -u GOOGLE_APPLICATION_CREDENTIALS -u GOOGLE_CLOUD_PROJECT -u GOOGLE_CLOUD_LOCATION -u GOOGLE_GENAI_USE_VERTEXAI -u AGY_LLM_GATEWAY_URL ")
     expect(out).toContain(`--approve-all --model ${ARGON} antigravity exec --config-option mode=auto_edit --config-option thinking_level=high`)
   })
@@ -917,9 +1007,7 @@ describe("ce-work antigravity route", () => {
     const proc = checkModel(FLASH, { ...cleanEnv(), PATH: `${bin}:${process.env.PATH}`, HOME: temp("ce-work-check-home-") })
     expect(proc.status).toBe(0)
     const leftBehind = Number(readFileSync(pidFile, "utf8").trim())
-    const stopped = Date.now() + 10_000
-    while (alive(leftBehind) && Date.now() < stopped) await Bun.sleep(100)
-    expect(alive(leftBehind)).toBe(false)
+    expect(await survivors([leftBehind], 10_000)).toEqual([])
   }, 60_000)
 
   test("interrupting the model check stops its detached acpx group", async () => {
@@ -935,9 +1023,7 @@ describe("ce-work antigravity route", () => {
     expect(alive(grandchild)).toBe(true)
     proc.kill("SIGTERM")
     await proc.exited
-    const stopped = Date.now() + 10_000
-    while (alive(grandchild) && Date.now() < stopped) await Bun.sleep(100)
-    expect(alive(grandchild)).toBe(false)
+    expect(await survivors([grandchild], 10_000)).toEqual([])
   }, 60_000)
 
   test("a non-Gemini model is refused alike by the controller, the worker, and the model check", () => {

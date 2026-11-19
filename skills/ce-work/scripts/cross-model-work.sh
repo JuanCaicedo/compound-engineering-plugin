@@ -9,7 +9,7 @@
 # Usage:
 #   cross-model-work.sh <authorization-json> <workspace> <unit-packet> <expected-packet-sha256> <result-dir>
 #
-# Routes: codex | claude | grok-cli | cursor | composer | grok-cursor | opencode | antigravity
+# Routes: codex | claude | grok-cli | cursor | composer | grok-cursor | opencode | antigravity | pi
 # Output: <result-dir>/implementation-result.json and redacted adapter.log
 # Exit: 0 host-resolvable terminal result, 1 failed/schema-invalid, 2 unavailable
 #
@@ -44,6 +44,7 @@ route_target() {
     codex|claude|cursor|composer|antigravity) printf '%s' "$1" ;;
     grok-cli|grok-cursor) printf 'grok' ;;
     opencode) printf 'opencode' ;;
+    pi) printf 'pi' ;;
     *) return 1 ;;
   esac
 }
@@ -56,6 +57,7 @@ route_harness() {
     cursor|composer|grok-cursor) printf 'cursor-agent' ;;
     opencode) printf 'opencode' ;;
     antigravity) printf 'antigravity' ;;
+    pi) printf 'pi' ;;
     *) return 1 ;;
   esac
 }
@@ -75,7 +77,7 @@ route_model() {
     codex|claude|grok-cli|cursor) printf 'auto' ;;
     grok-cursor) printf '%s' "$M_GROK_CURSOR" ;;
     composer) printf '%s' "$M_COMPOSER" ;;
-    opencode) printf 'auto' ;;
+    opencode|pi) printf 'auto' ;;
     antigravity) printf '%s' "$M_ANTIGRAVITY" ;;
   esac
 }
@@ -88,6 +90,7 @@ route_available() {
     cursor|composer|grok-cursor) command -v cursor-agent >/dev/null 2>&1 ;;
     opencode) command -v opencode >/dev/null 2>&1 ;;
     antigravity) command -v agy_acp_server.par >/dev/null 2>&1 ;;
+    pi) command -v pi >/dev/null 2>&1 ;;
     *) return 1 ;;
   esac
 }
@@ -96,10 +99,16 @@ route_available() {
 # Every route reaches its agent through acpx, which speaks the Agent Client
 # Protocol and prints the JSON-RPC stream, so one parser covers every CLI.
 # The calling worker supplies route_available, route_model, and log.
-ACPX_VERSION="0.19.5"
+ACPX_VERSION="0.22.0"
+# 0.18.0 fixes approve-reads allowing ambiguous destructive permission requests.
+ACPX_MIN_VERSION="0.18.0"
 ACPX_UNAVAILABLE=""   # pre-egress reason; ACPX_SCOPE says whether every route shares it
 ACPX_SCOPE=""
 ACPX_NPM_REFRESH=false
+
+acpx_package_spec() {
+  printf 'acpx@>=%s <=%s' "$ACPX_MIN_VERSION" "$ACPX_VERSION"
+}
 
 acpx_agent() {   # <route> -> acpx built-in agent name
   case "$1" in
@@ -109,6 +118,7 @@ acpx_agent() {   # <route> -> acpx built-in agent name
     grok-cursor|cursor|composer) printf 'cursor' ;;
     opencode) printf 'opencode' ;;
     antigravity) printf 'antigravity' ;;
+    pi) printf 'pi' ;;
     *) return 1 ;;
   esac
 }
@@ -123,13 +133,18 @@ acpx_antigravity_helper() {
   printf '%s/localharness_external' "$(dirname "$runtime")"
 }
 
-# The runtime reads skills and settings from GEMINI_HOME and copies its sign-in
-# token there, so every run gets a private one, deleted with the caller's
-# scratch. The settings select the personal Google login the runtime reuses.
+# The runtime reads skills and settings from GEMINI_HOME, so every run gets a
+# private one, deleted with the caller's scratch. A file-backed login (no macOS
+# keychain) is read only from there, so it is copied in; refreshes are not
+# written back, so concurrent peers cannot clobber the user's token.
 acpx_antigravity_home() {   # <private-dir> -> GEMINI_HOME path
   local home="$1/gemini-home"
+  local token="${GEMINI_HOME:-${HOME:-}/.gemini}/antigravity-acp/acp_token.json"
   (umask 077; mkdir -p "$home/antigravity-acp") || return 1
   printf '{"auth":{"type":"oauth-personal"}}\n' > "$home/antigravity-acp/settings.json" || return 1
+  if [ -f "$token" ]; then
+    (umask 077; cp "$token" "$home/antigravity-acp/acp_token.json") || return 1
+  fi
   printf '%s' "$home"
 }
 
@@ -179,6 +194,11 @@ acpx_preflight() {   # <route> <cwd>; nothing is sent to a provider here
       MINGW*|MSYS*|CYGWIN*) acpx_unavailable route "opencode launches through acpx's raw --agent command, which acpx rejects on native Windows"; return 1 ;;
     esac
   fi
+  if [ "$1" = pi ]; then
+    case "$(uname -s 2>/dev/null)" in
+      MINGW*|MSYS*|CYGWIN*) acpx_unavailable route "pi launches through a POSIX sh wrapper, which pi-acp cannot start on native Windows"; return 1 ;;
+    esac
+  fi
   acpx_config_guard "$1" "$2"
 }
 
@@ -191,20 +211,37 @@ acpx_claude_wrapper() {   # <private-dir> -> wrapper path
   printf '%s' "$wrapper"
 }
 
-# npm resolves offline-first, so cached metadata older than the acpx pin or a
-# version an adapter's dependencies need fails with ETARGET before anything is
-# sent. One launch with fresh metadata heals the cache. npm ignores
-# prefer_online while prefer_offline is set, so the refresh turns it off.
-acpx_stale_npm_metadata() {   # <stderr-log> <stream-log>
+# Pi runs its tools without ACP permission requests, so acpx's permission flags
+# do not bound it. pi-acp (0.0.33+) launches PI_ACP_PI_COMMAND instead of the pi
+# on PATH; this wrapper ignores project-local Pi files and adds the worker's
+# tool limits.
+acpx_pi_wrapper() {   # <private-dir> [pi-arg...] -> wrapper path
+  local real wrapper="$1/pi-launch" args="" arg
+  shift
+  real="$(command -v pi)" || return 1
+  for arg in --no-approve "$@"; do args="$args $(printf '%q' "$arg")"; done
+  printf '#!/bin/sh\nexec %s%s "$@"\n' "$(printf '%q' "$real")" "$args" > "$wrapper" && chmod 700 "$wrapper" || return 1
+  printf '%s' "$wrapper"
+}
+
+acpx_npm_failure_reason() {
+  if grep -qE 'No matching version found for .* with a date before ' "$1" 2>/dev/null; then
+    printf '%s' "npm could not resolve $(acpx_package_spec) or a dependency before its date cutoff; check min-release-age/before policy or wait for the cooldown"
+  else
+    grep -m1 '^npm error' "$1" 2>/dev/null
+  fi
+}
+
+# ETARGET is ambiguous: refresh metadata once while preserving npm's date policy.
+# npm ignores prefer_online while prefer_offline is set, so refresh disables it.
+acpx_npm_resolution_retryable() {   # <stderr-log> <stream-log>
   [ "$ACPX_NPM_REFRESH" = true ] && return 1
   grep -qE 'ETARGET|notarget|No matching version found' "$1" "$2" 2>/dev/null
 }
 
-# Prints the NUL-delimited argv prefix through `npx acpx@<pin>` and its global
-# flags; the worker appends permission flags, `--model`, the agent, and exec options.
 # The codex and claude adapters are pointed at the installed CLIs so the pin
-# governs the transport, not which models the agent can serve.
-acpx_base_argv() {   # <route> <cwd> <mcp-config> <timeout-secs> <claude-wrapper> <gemini-home>
+# bounds the transport version, not which models the agent can serve.
+acpx_base_argv() {   # <route> <cwd> <mcp-config> <timeout-secs> <claude-wrapper> <gemini-home> <pi-wrapper>
   printf '%s\0' env
   # An ambient Google API key or cloud project would bill it instead of the
   # Antigravity subscription. env takes -u only before its first assignment.
@@ -218,11 +255,16 @@ acpx_base_argv() {   # <route> <cwd> <mcp-config> <timeout-secs> <claude-wrapper
     printf '%s\0' npm_config_prefer_offline=true npm_config_fetch_retries=0
   fi
   case "$1" in
-    codex) printf '%s\0' "CODEX_PATH=$(command -v codex)" ;;
+    # codex-acp ignores app-server CLI flags.
+    codex) printf '%s\0' "CODEX_PATH=$(command -v codex)" 'CODEX_CONFIG={"features":{"plugins":false}}' ;;
     claude) printf '%s\0' "CLAUDE_CODE_EXECUTABLE=$5" ;;
     antigravity) printf '%s\0' "GEMINI_HOME=$6" "ANTIGRAVITY_HARNESS_PATH=$(acpx_antigravity_helper)" ;;
+    pi) printf '%s\0' "PI_ACP_PI_COMMAND=$7" ;;
   esac
-  printf '%s\0' npx -y "acpx@$ACPX_VERSION" --cwd "$2" --format json --mcp-config "$3" --timeout "$4"
+  # Explicit --package avoids npx reusing a global binary that violates npm age policy.
+  # npx also exports npm_config_package, which breaks the nested npx acpx uses
+  # to launch the codex adapter when npm is not beside node (exit 127).
+  printf '%s\0' npx -y --package "$(acpx_package_spec)" -- env -u npm_config_package acpx --cwd "$2" --format json --mcp-config "$3" --timeout "$4"
 }
 
 acpx_agent_argv() {   # <route>
@@ -278,6 +320,36 @@ acpx_failure_evidence() {   # <stream-log>
   [ "${#evidence}" -gt 300 ] && evidence="${evidence:0:147} ... ${evidence: -147}"
   printf '%s' "$evidence"
 }
+
+# codex-acp streams a provider rejection (such as a model the account may not
+# use) as reply text and still ends the turn with end_turn, so only the reply
+# carries it. Bounded inside jq so a long reply never enters a bash string.
+acpx_reply_evidence() {   # <stream-log>
+  jq -nrR '[inputs | fromjson? | select(.method == "session/update" and .params.update.sessionUpdate == "agent_message_chunk") | .params.update.content.text // empty]
+    | join("") | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ")
+    | if length > 300 then .[0:147] + " ... " + .[-147:] else . end' "$1" 2>/dev/null
+}
+
+acpx_advertised_models() {   # <stream-log>
+  jq -nrR '[inputs | fromjson? | .result.models.availableModels[]?.modelId | sub("\\[.*$"; "")]
+    | reduce .[] as $m ([]; if any(.[]; . == $m) then . else . + [$m] end)
+    | join(", ") | if length > 300 then .[0:296] + " ..." else . end' "$1" 2>/dev/null
+}
+
+# Exit 5 is acpx's permission refusal. Paired with stopReason cancelled, the
+# refusal ended the turn. Exit 5 with end_turn means the turn finished. A
+# cancelled turn with any other exit is an interrupt.
+acpx_permission_cancel_reason() {   # <stream-log> <exit-code>
+  [ "$(acpx_outcome "$1")" = cancelled ] && [ "$2" = 5 ] || return 0
+  printf '%s' "permission request cancelled the turn"
+}
+
+acpx_node_startup_line() {   # <stderr-log>
+  local line=""
+  line="$(grep -m1 -E '^Error ' "$1" 2>/dev/null)"
+  [ -n "$line" ] || line="$(grep -m1 -E '^node:' "$1" 2>/dev/null)"
+  printf '%s' "$line"
+}
 # --- end acpx transport -----------------------------------------------------
 
 # Cursor routes take Cursor's ACP model ids, which may carry a bracketed preset
@@ -289,7 +361,7 @@ validate_model_override() {
   local route="$1" override="${CE_WORK_MODEL_OVERRIDE:-}" override_target="${CE_WORK_MODEL_OVERRIDE_TARGET:-}" target base base_lower
   [ -n "$override" ] || { [ -z "$override_target" ]; return; }
   case "$override_target" in
-    codex|claude|grok|cursor|composer|opencode|antigravity) ;;
+    codex|claude|grok|cursor|composer|opencode|antigravity|pi) ;;
     *) return 1 ;;
   esac
   target="$(route_target "$route")" || return 1
@@ -307,7 +379,7 @@ validate_model_override() {
     return 0
   fi
   case "$route:$base" in
-    codex:gpt-*|codex:o[0-9]*|claude:fable|claude:opus|claude:sonnet|claude:haiku|claude:claude-*|grok-cli:grok-*|grok-cursor:grok-*|grok-cursor:cursor-grok-*|composer:composer-*|opencode:*/*) ;;
+    codex:gpt-*|codex:o[0-9]*|claude:fable|claude:opus|claude:sonnet|claude:haiku|claude:claude-*|grok-cli:grok-*|grok-cursor:grok-*|grok-cursor:cursor-grok-*|composer:composer-*|opencode:*/*|pi:*/*) ;;
     antigravity:gemini-*) [[ "$base" =~ ^gemini-[A-Za-z0-9._-]+$ ]] || return 1 ;;
     *) return 1 ;;
   esac
@@ -316,10 +388,11 @@ validate_model_override() {
 # Accept an effort only where the route's ACP adapter exposes an effort option
 # and lists the value (claude effort, codex and grok reasoning_effort, checked
 # 2026-10-06 through acpx 0.19.4; antigravity thinking_level, checked
-# 2026-10-14). Codex levels vary per model, so a listed level can still be
-# refused before the prompt is sent. Cursor fixes effort in
-# the model preset and OpenCode has no effort option over ACP, so any effort
-# there makes the route unavailable instead of being dropped.
+# 2026-10-14; opencode 2.x effort, checked 2026-10-23). Codex and OpenCode
+# levels vary per model, and OpenCode 1.x has no effort option, so a listed
+# level can still be refused before the prompt is sent. Cursor fixes effort in
+# the model preset and the Pi route sets no thinking level, so any effort there
+# makes the route unavailable instead of being dropped.
 validate_effort_override() {
   local route="$1" effort="${EFFORT_REQUESTED:-}"
   [ -n "$effort" ] || return 0
@@ -328,6 +401,7 @@ validate_effort_override() {
     codex:low|codex:medium|codex:high|codex:xhigh|codex:max|codex:ultra) ;;
     grok-cli:low|grok-cli:medium|grok-cli:high|grok-cli:xhigh) ;;
     antigravity:low|antigravity:medium|antigravity:high) ;;
+    opencode:none|opencode:low|opencode:medium|opencode:high|opencode:xhigh|opencode:max) ;;
     *) return 1 ;;
   esac
 }
@@ -335,15 +409,15 @@ validate_effort_override() {
 # The worker runs in the prepared workspace with every permission request
 # approved. Each adapter runs in its write-capable mode (codex agent, claude
 # default, cursor agent, opencode build, antigravity auto_edit, since its
-# default mode waits on approvals that never come); none of them confines
-# writes to the workspace, which references/cross-model-execution.md records
-# per route. Codex, Claude, and Antigravity run at high effort and native Grok
+# default mode waits on approvals that never come; pi asks for none); none of
+# them confines writes to the workspace, which references/cross-model-execution.md
+# records per route. Codex, Claude, and Antigravity run at high effort and native Grok
 # at xhigh unless the authorization requests another level.
 adapter_argv() {
   local route="$1" model
   acpx_agent "$route" >/dev/null || return 1
   model="$(route_model "$route")"
-  acpx_base_argv "$route" "$WORKSPACE" "$MCP_CONFIG" "$ACPX_TIMEOUT" "$CLAUDE_WRAPPER" "$GEMINI_HOME_DIR"
+  acpx_base_argv "$route" "$WORKSPACE" "$MCP_CONFIG" "$ACPX_TIMEOUT" "$CLAUDE_WRAPPER" "$GEMINI_HOME_DIR" "$PI_WRAPPER"
   printf '%s\0' --approve-all
   [ "$model" = auto ] || printf '%s\0' --model "$model"
   acpx_agent_argv "$route"
@@ -353,7 +427,8 @@ adapter_argv() {
     claude) printf '%s\0' --config-option mode=default --config-option "effort=${EFFORT_REQUESTED:-high}" ;;
     grok-cli) printf '%s\0' --config-option "reasoning_effort=${EFFORT_REQUESTED:-xhigh}" ;;
     cursor|composer|grok-cursor) printf '%s\0' --config-option mode=agent ;;
-    opencode) printf '%s\0' --config-option mode=build ;;
+    opencode) printf '%s\0' --config-option mode=build
+      [ -z "${EFFORT_REQUESTED:-}" ] || printf '%s\0' --config-option "effort=$EFFORT_REQUESTED" ;;
     antigravity) printf '%s\0' --config-option mode=auto_edit --config-option "thinking_level=${EFFORT_REQUESTED:-high}" ;;
   esac
   printf '%s\0' --file "$PROMPT_FILE"
@@ -368,6 +443,7 @@ if [ "${1:-}" = "--emit-adapter" ]; then
   MCP_CONFIG="<mcp-config>"
   CLAUDE_WRAPPER="<claude-safe-mode-wrapper>"
   GEMINI_HOME_DIR="<gemini-home>"
+  PI_WRAPPER="<pi-wrapper>"
   ROUTE="${2:-}"
   EFFORT_REQUESTED="${CROSS_MODEL_EFFORT_OVERRIDE:-}"
   validate_model_override "$ROUTE" || {
@@ -384,7 +460,7 @@ if [ "${1:-}" = "--emit-adapter" ]; then
   exit 0
 fi
 
-SIGN_IN_STALL_REASON="transport unavailable (pre-egress, route): Antigravity is waiting for a Google sign-in; sign in once with the agy CLI or the Antigravity app, then retry"
+SIGN_IN_STALL_REASON="transport unavailable (pre-egress, route): Antigravity is waiting for a Google sign-in; the agy CLI's sign-in does not carry over, so sign the ACP runtime in once: put {\"auth\":{\"type\":\"oauth-personal\"}} in ${GEMINI_HOME:-~/.gemini}/antigravity-acp/settings.json, run npx -y --package '$(acpx_package_spec)' -- acpx antigravity exec ok in a terminal and finish the browser sign-in, then retry"
 
 # --check-model antigravity <model>: acpx checks --model against the models the
 # session advertises before any prompt, so opening a session answers whether the
@@ -447,19 +523,20 @@ if [ "${1:-}" = "--check-model" ]; then
     CHECK_EXIT=$?
   }
   open_check_session
-  if [ "$CHECK_EXIT" -ne 0 ] && acpx_stale_npm_metadata "$CHECK_DIR/stderr" "$CHECK_DIR/stdout"; then
-    log "npm resolved against stale cached package metadata; retrying the model check once with fresh metadata"
+  if [ "$CHECK_EXIT" -ne 0 ] && acpx_npm_resolution_retryable "$CHECK_DIR/stderr" "$CHECK_DIR/stdout"; then
+    log "npm could not resolve a package; retrying the model check once with fresh metadata (npm policy unchanged)"
     ACPX_NPM_REFRESH=true
     open_check_session
   fi
   RECORD_ID="$(jq -r 'select(.action? == "session_ensured") | .acpxRecordId // empty' "$CHECK_DIR/stdout" 2>/dev/null | tail -1)"
   case "$RECORD_ID" in ''|*[!A-Za-z0-9-]*) ;; *) rm -f "$ACPX_STATE/sessions/$RECORD_ID.json" ;; esac
   [ "$CHECK_EXIT" -eq 0 ] && exit 0
-  REASON="$(grep -m1 '^npm error' "$CHECK_DIR/stderr" 2>/dev/null)"
+  REASON="$(acpx_npm_failure_reason "$CHECK_DIR/stderr")"
   if [ -n "$REASON" ]; then
     printf 'transport unavailable (pre-egress, shared): %s\n' "${REASON:0:200}" >&2
   else
-    REASON="$(acpx_failure_evidence "$CHECK_DIR/stdout")"
+    REASON="$(acpx_npm_failure_reason "$CHECK_DIR/stdout")"
+    [ -n "$REASON" ] || REASON="$(acpx_failure_evidence "$CHECK_DIR/stdout")"
     [ -n "$REASON" ] || REASON="$(grep -m1 -e 'did not advertise' -e 'Error' "$CHECK_DIR/stderr" 2>/dev/null)"
     printf 'transport unavailable (pre-egress, route): %s\n' "${REASON:-acpx exited $CHECK_EXIT while opening a session}" >&2
   fi
@@ -502,6 +579,7 @@ SERVED_MODELS="$SCRATCH/served-models"
 MCP_CONFIG="$SCRATCH/mcp.json"
 CLAUDE_WRAPPER=""
 GEMINI_HOME_DIR=""
+PI_WRAPPER=""
 SESSION_STALL_MARKER="$SCRATCH/session-stalled"
 RAW_LIMIT_MARKER="$SCRATCH/raw-output-limit"
 PACKET_SNAPSHOT="$SCRATCH/unit-packet"
@@ -533,6 +611,7 @@ contracts = {
     "grok-cursor": ("grok", "cursor-agent", ["cursor"], "cooperative"),
     "opencode": ("opencode", "opencode", [], "cooperative"),
     "antigravity": ("antigravity", "antigravity", [], "cooperative"),
+    "pi": ("pi", "pi", [], "cooperative"),
 }
 
 def fail(message):
@@ -558,7 +637,7 @@ def model_allowed(route, model):
         return model in {"auto", "fable", "opus", "sonnet", "haiku"} or bool(re.fullmatch(r"claude-[A-Za-z0-9._-]+", model))
     if route == "grok-cli":
         return model == "auto" or bool(re.fullmatch(r"grok-[A-Za-z0-9._-]+", model))
-    if route == "opencode":
+    if route in ("opencode", "pi"):
         return model == "auto" or bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9._-]+", model))
     if route == "antigravity":
         return bool(re.fullmatch(r"gemini-[A-Za-z0-9._-]+", model))
@@ -1030,6 +1109,12 @@ if [ "$ROUTE" = antigravity ]; then
     exit 2
   }
 fi
+if [ "$ROUTE" = pi ]; then
+  PI_WRAPPER="$(acpx_pi_wrapper "$SCRATCH")" || {
+    publish_unavailable "transport unavailable (pre-egress, route): cannot prepare the Pi launcher" || exit 2
+    exit 2
+  }
+fi
 printf '{"mcpServers":[]}\n' > "$MCP_CONFIG"
 
 ARGS=()
@@ -1042,10 +1127,10 @@ MIN_ENV=(env -i "PATH=$PATH" "PYTHONDONTWRITEBYTECODE=1")
 [ -n "${LANG:-}" ] && MIN_ENV+=("LANG=$LANG")
 [ -n "${LC_ALL:-}" ] && MIN_ENV+=("LC_ALL=$LC_ALL")
 [ -n "${XDG_CONFIG_HOME:-}" ] && MIN_ENV+=("XDG_CONFIG_HOME=$XDG_CONFIG_HOME")
-# npx reaches the user's npm cache, registry, and user config by these
-# locations. npm auth token values are never forwarded; npm reads its own
-# config file for them.
-for name in npm_config_cache NPM_CONFIG_CACHE npm_config_registry NPM_CONFIG_REGISTRY npm_config_userconfig NPM_CONFIG_USERCONFIG; do
+# npm reads its config file for authentication.
+for name in npm_config_cache NPM_CONFIG_CACHE npm_config_registry NPM_CONFIG_REGISTRY npm_config_userconfig NPM_CONFIG_USERCONFIG \
+  npm_config_min_release_age NPM_CONFIG_MIN_RELEASE_AGE npm_config_before NPM_CONFIG_BEFORE \
+  npm_config_min_release_age_exclude NPM_CONFIG_MIN_RELEASE_AGE_EXCLUDE; do
   [ -n "${!name:-}" ] && MIN_ENV+=("$name=${!name}")
 done
 # Preserve route-specific config-directory pointers so existing CLI-native login
@@ -1062,6 +1147,7 @@ case "$ROUTE" in
   cursor|composer|grok-cursor)
     [ -n "${CURSOR_CONFIG_DIR:-}" ] && MIN_ENV+=("CURSOR_CONFIG_DIR=$CURSOR_CONFIG_DIR")
     ;;
+  pi) [ -n "${PI_CODING_AGENT_DIR:-}" ] && MIN_ENV+=("PI_CODING_AGENT_DIR=$PI_CODING_AGENT_DIR") ;;
 esac
 
 ACTIVITY_POLL_SECS="${CE_WORK_ACTIVITY_POLL_SECS:-15}"
@@ -1151,10 +1237,10 @@ launch_route() {
 }
 LAUNCH_STARTED="$(date +%s)"
 launch_route
-if acpx_stale_npm_metadata "$RAW_STDERR" "$RAW_STDOUT" && [ "$(acpx_outcome "$RAW_STDOUT")" = not-sent ]; then
+if acpx_npm_resolution_retryable "$RAW_STDERR" "$RAW_STDOUT" && [ "$(acpx_outcome "$RAW_STDOUT")" = not-sent ]; then
   REMAINING=$(( ACPX_TIMEOUT - ( $(date +%s) - LAUNCH_STARTED ) ))
   if [ "$REMAINING" -gt 0 ]; then
-    log "npm resolved against stale cached package metadata; retrying the same route once with fresh metadata in the ${REMAINING}s left (nothing was sent)"
+    log "npm could not resolve a package; retrying the same route once with fresh metadata in the ${REMAINING}s left (nothing was sent; npm policy unchanged)"
     ACPX_NPM_REFRESH=true
     ACPX_TIMEOUT="$REMAINING"
     ARGS=()
@@ -1189,20 +1275,27 @@ case "$OUTCOME" in
   not-sent)
     # Nothing reached the provider: npm could not fetch acpx (every route fails
     # alike), or the adapter refused before the prompt (this route only).
-    REASON="$(grep -m1 '^npm error' "$RAW_STDERR" 2>/dev/null)"
+    REASON="$(acpx_npm_failure_reason "$RAW_STDERR")"
     if [ -n "$REASON" ]; then
       REASON="transport unavailable (pre-egress, shared): ${REASON:0:200}"
     elif [ -f "$SESSION_STALL_MARKER" ]; then
       REASON="$SIGN_IN_STALL_REASON"
     else
-      REASON="$(acpx_failure_evidence "$STREAM")"
-      REASON="transport unavailable (pre-egress, route): ${REASON:-acpx exited $ROUTE_EXIT before sending the prompt}"
+      node_line="$(acpx_node_startup_line "$RAW_STDERR")"
+      if [ -n "$node_line" ]; then
+        REASON="transport unavailable (pre-egress, route): ${node_line:0:200}"
+      else
+        REASON="$(acpx_npm_failure_reason "$RAW_STDOUT")"
+        [ -n "$REASON" ] || REASON="$(acpx_failure_evidence "$STREAM")"
+        REASON="transport unavailable (pre-egress, route): ${REASON:-acpx exited $ROUTE_EXIT before sending the prompt}"
+      fi
     fi
     publish_unavailable "$REASON" || exit 2
     exit 2
     ;;
   *)
-    REASON="$(acpx_failure_evidence "$STREAM")"
+    REASON="$(acpx_permission_cancel_reason "$RAW_STDOUT" "$ROUTE_EXIT")"
+    [ -n "$REASON" ] || REASON="$(acpx_failure_evidence "$STREAM")"
     publish_unavailable "fixed route ended with $OUTCOME (acpx exit $ROUTE_EXIT)${REASON:+: $REASON}" failed "$ROUTE" || exit 2
     exit 1
     ;;
@@ -1214,9 +1307,10 @@ acpx_served_models "$RAW_STDOUT" > "$SERVED_MODELS"
 set +e
 CE_WORK_REDACT_FILE="${CE_WORK_REDACT_FILE:-}" "$PY" - \
   "$REPLY_TEXT" "$SERVED_MODELS" "$ROUTE" "$TARGET" "$HARNESS" \
-  "$MODEL_REQUESTED" "$EXPECTED_PACKET_DIGEST" "$LOG_FILE" "$ACTIVITY_POSTURE" "$RESTRICTION_POSTURE" "$EFFORT_REQUESTED" <<'PY' | write_result_receipt
+  "$MODEL_REQUESTED" "$EXPECTED_PACKET_DIGEST" "$LOG_FILE" "$ACTIVITY_POSTURE" "$RESTRICTION_POSTURE" "$EFFORT_REQUESTED" \
+  "$(acpx_reply_evidence "$RAW_STDOUT")" "$(acpx_advertised_models "$RAW_STDOUT")" <<'PY' | write_result_receipt
 import json, os, re, sys
-reply, served_models, route, target, harness, requested, packet_digest, log, activity, restriction, effort = sys.argv[1:]
+reply, served_models, route, target, harness, requested, packet_digest, log, activity, restriction, effort, reply_evidence, advertised = sys.argv[1:]
 
 def redactions():
     p=os.environ.get("CE_WORK_REDACT_FILE", "")
@@ -1318,7 +1412,9 @@ if valid:
 else:
     base_receipt.update({"terminal_status":"failed", "summary":"Adapter terminal output failed result schema",
       "changed_files":[], "evidence":[], "scope_expansion":None,
-      "failure_reason":"terminal output failed implementation result schema"})
+      "failure_reason":"; ".join(["terminal output failed implementation result schema"]
+        + ([f"reply: {reply_evidence}"] if reply_evidence else [])
+        + ([f"advertised models: {advertised}"] if advertised else []))})
 base_receipt=redact(base_receipt)
 json.dump(base_receipt,sys.stdout,indent=2)
 sys.stdout.write("\n")

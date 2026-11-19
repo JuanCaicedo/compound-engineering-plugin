@@ -69,9 +69,14 @@ function runCell(scenario: Scenario, arm: EvalArm, out: string, hosts?: string) 
   ]
   if (scenario.read_only) argv.push("--read-only")
   if (scenario.git_init) argv.push("--git-init")
+  if (scenario.with_skill?.length) argv.push("--with-skill", scenario.with_skill.join(","))
+  if (scenario.handoff_probe?.length) argv.push("--handoff-probe", scenario.handoff_probe.join(","))
   if (scenario.git_untracked?.length) argv.push("--git-untracked", scenario.git_untracked.join(","))
   if (scenario.git_staged?.length) argv.push("--git-staged", scenario.git_staged.join(","))
+  if (scenario.git_deleted?.length) argv.push("--git-deleted", scenario.git_deleted.join(","))
   if (scenario.git_remote) argv.push("--git-remote")
+  if (scenario.fixture_omit?.length) argv.push("--fixture-omit", scenario.fixture_omit.join(","))
+  if (scenario.git_change) argv.push("--git-change", JSON.stringify(scenario.git_change))
   if (scenario.shim_git_push) {
     argv.push("--shim-git-push")
     if (typeof scenario.shim_git_push === "object") {
