@@ -137,12 +137,12 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `README.md` | Fork badge, install paths, skill counts, and a `Fork additions` row in "Skills at a glance" (the metadata test requires every skill to be named there) |
 | `skills/ce-plan/references/{structure,final-review,plan-sections}.md` | `ft-<ticket>` naming, Open Questions resolution pass |
 | `tests/skills/unified-plan-artifact-contract.test.ts` | Plan-filename test rewritten to pin `ft-<ticket>` |
-| `skills/ce-code-review/references/{review-output-template,finish-review}.md`, `docs/guides/ce-code-review.md` | Bottom-up action-list report |
+| `skills/ce-code-review/references/{review-output-template,finish-report}.md`, `docs/guides/ce-code-review.md` | Bottom-up action-list report. Upstream split `finish-review.md` into `finish-merge.md` (Stage 5 to 5b step 4) and `finish-report.md` (Stage 5b step 5 to Stage 6); the action-list rewrite lives in `finish-report.md` |
 | `skills/ce-work/references/{review-findings-followup,shipping-workflow}.md`, `skills/lfg/**` | Read the actionable set instead of the removed Actionable Findings section |
 | `tests/review-skill-contract.test.ts`, `tests/fixtures/ce-code-review-stable-numbering.md` | Pin the action-list contract |
 | `skills/ce-code-review/SKILL.md` | Cross-model disable gate (spine step 5, Stage 3d); names `cross_model_review_mode` / `cross_model_peer` as inert |
 | `skills/ce-code-review/references/{select-and-route,depth-paths,finish-input,modes-and-output}.md` | Stage 3d route is always local; the focused depth path's independent read is a local `adversarial-reviewer`, not a peer; `peer` fields fixed to not-run |
-| `skills/ce-code-review/references/{dispatch-reviewers,finish-review,persona-catalog}.md` | Peer fold-in, promotion, and Coverage wording reconciled to in-process only |
+| `skills/ce-code-review/references/{dispatch-reviewers,finish-merge,finish-report,persona-catalog}.md` | Peer fold-in, promotion, and Coverage wording reconciled to in-process only |
 | `skills/ce-doc-review/SKILL.md` | Cross-model judgment pass disabled |
 | `skills/ce-doc-review/references/synthesis-and-presentation.md` | Header note marking the peer rules inert |
 | `skills/ce-pov/SKILL.md` | Panel disabled; description and `argument-hint` reconciled |
@@ -151,6 +151,7 @@ Expect each of these to conflict whenever upstream touches it. Every other fork 
 | `skills/ce-work/references/{execution-engines,implementation-loop,execution-strategy}.md` | Engine removed from selection; `execution-engines.md` keeps upstream's "two implementation engines" wording (tests pin it) and says only native is selectable |
 | `skills/*/references/cross-model-*.md` | `DISABLED IN THIS FORK` banner |
 | `skills/ce-setup/references/config-template.yaml` + `.compound-engineering/config.example.yaml` | `cross_model_*` and `work_engine_*` keys marked inert (keep the two byte-identical) |
+| `skills/ce-setup/references/config-template-lines.txt`, `tests/fixtures/ce-config-template-pin.json` | The fork's inert-key template lines are appended to the known-lines list, and the pin holds the fork template's hash. Keep upstream's template version number; do not bump it, so a later upstream version still reads as newer. After a sync that touches the template, append any unlisted fork lines and re-pin the hash |
 | `docs/guides/configuration.md` | Same two rows marked inert |
 | `tests/pov-skill-contract.test.ts` | 4 panel tests rewritten to pin the disabled contract |
 | `tests/skills/task-visibility-contract.test.ts` | Peer-task test rewritten to pin no-egress |
