@@ -36,6 +36,8 @@ Ask the user only when the answer materially affects architecture, scope, sequen
   - Examples: `2026-01-15-ft-123-feat-user-authentication-flow-plan.md`, `2026-02-03-ft-456-fix-checkout-race-condition-plan.md`
   - Avoid: a missing ticket identifier, daily sequence numbers, vague names like "new-feature", and invalid characters (colons, spaces)
 
+**Mark the Linear ticket started.** Once the ticket is known, and the project's active instructions and conventions already in context say its issues live in Linear, find the Linear issue it names (`ft-123` is `FT-123`), then move it to the team's In Progress state and assign it to the current user, through whatever interface Linear exposes in this session (a connector or MCP tool, or its API). Leave the state alone when the issue is already started, completed, or canceled, and leave the assignee alone when someone other than the current user holds it; name what you left alone in one line. This is best-effort: when Linear is unreachable or the issue does not exist, say so in one line and continue. It never blocks the plan.
+
 #### 3.2 Stakeholder and Impact Awareness
 
 For **Standard** or **Deep** plans, briefly consider who is affected by this change — end users, developers, operations, other teams — and how that should shape the plan. For cross-cutting work, note affected parties in the System-Wide Impact section.
